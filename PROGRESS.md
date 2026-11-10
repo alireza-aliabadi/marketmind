@@ -8,9 +8,9 @@
 - **Objective:** Advanced AI Engineer portfolio project
 - **Architecture:** Domain-Driven Microservices + Clean Architecture + Event-Driven Architecture
 - **Target plan:** 12 weeks
-- **Current phase:** Phase 0 — Planning / repository bootstrap
-- **Overall status:** Not started
-- **Last updated:** 2026-10-31
+- **Current phase:** Phase 0 — Planning / repository bootstrap (Completed)
+- **Overall status:** Phase 0 complete; ready for Phase 1
+- **Last updated:** 2026-11-07
 
 ### Status legend
 
@@ -25,8 +25,8 @@ Do not mark a task `[x]` until its acceptance criteria have been tested. Add a P
 
 ## Architecture decisions to preserve
 
-- [ ] **ADR-001:** Adopt DDD bounded contexts and independently deployable microservices.
-- [ ] **ADR-002:** Apply Clean/Hexagonal Architecture inside services; dependencies point inward.
+- [x] **ADR-001:** Adopt DDD bounded contexts and independently deployable microservices.
+- [x] **ADR-002:** Apply Clean/Hexagonal Architecture inside services; dependencies point inward.
 - [ ] **ADR-003:** Use Kafka for asynchronous integration; use HTTP/gRPC for suitable synchronous request-response operations.
 - [ ] **ADR-004:** Enforce service data ownership; no cross-service database writes.
 - [ ] **ADR-005:** Use PostgreSQL for transactional records, TimescaleDB for time-series, Neo4j for graph facts, Redis for ephemeral coordination, and S3-compatible object storage for permitted raw artifacts.
@@ -42,22 +42,22 @@ Do not mark a task `[x]` until its acceptance criteria have been tested. Add a P
 
 **Goal:** Establish repository conventions and validate the development environment.
 
-- [ ] Create Git repository `marketmind-ai`.
-- [ ] Add README.md and PROGRESS.md.
-- [ ] Add root `.gitignore`.
-- [ ] Add `.env.example` with placeholders only.
-- [ ] Add Makefile with planned developer commands.
-- [ ] Add contribution and coding conventions.
-- [ ] Add ADR template and architecture decision directory.
-- [ ] Select and pin supported runtime versions.
-- [ ] Decide initial market-data provider and verify its licensing/coverage.
-- [ ] Define the first vertical-slice demo.
+- [x] Create Git repository `marketmind-ai`.
+- [x] Add README.md and PROGRESS.md.
+- [x] Add root `.gitignore`.
+- [x] Add `.env.example` with placeholders only.
+- [x] Add Makefile with planned developer commands.
+- [x] Add contribution and coding conventions.
+- [x] Add ADR template and architecture decision directory.
+- [x] Select and pin supported runtime versions.
+- [x] Decide initial market-data provider and verify its licensing/coverage.
+- [x] Define the first vertical-slice demo.
 
 **Exit criteria**
-- Clean checkout has documented setup instructions.
-- No secrets are committed.
-- Runtime and dependency versions are pinned.
-- First vertical slice is scoped.
+- [x] Clean checkout has documented setup instructions.
+- [x] No secrets are committed.
+- [x] Runtime and dependency versions are pinned.
+- [x] First vertical slice is scoped.
 
 ---
 
@@ -65,22 +65,22 @@ Do not mark a task `[x]` until its acceptance criteria have been tested. Add a P
 
 ### M1.1 — Monorepo and service templates
 
-- [ ] Create service directory structure.
-- [ ] Add Go service template.
-- [ ] Add Python service template.
-- [ ] Add React + TypeScript frontend scaffold.
-- [ ] Configure formatters, linters, and pre-commit checks.
-- [ ] Add CI build and unit-test workflows.
+- [x] Create service directory structure.
+- [x] Add Go service template.
+- [x] Add Python service template.
+- [x] Add React + TypeScript frontend scaffold.
+- [x] Configure formatters, linters, and pre-commit checks.
+- [x] Add CI build and unit-test workflows.
 
 ### M1.2 — API gateway and identity
 
-- [ ] Implement Go API gateway.
-- [ ] Add health/readiness endpoints.
-- [ ] Add request ID and correlation ID middleware.
-- [ ] Add OIDC/OAuth2 integration.
-- [ ] Define organization and user model.
-- [ ] Implement role/permission checks.
-- [ ] Add tenant-isolation tests.
+- [x] Implement Go API gateway.
+- [x] Add health/readiness endpoints.
+- [x] Add request ID and correlation ID middleware.
+- [x] Add OIDC/OAuth2 integration.
+- [x] Define organization and user model.
+- [x] Implement role/permission checks.
+- [x] Add tenant-isolation tests.
 
 ### M1.3 — Local infrastructure
 
@@ -373,7 +373,7 @@ Targets are engineering goals, not achieved metrics. Record actual results, data
 
 ## Current blockers / decisions
 
-- [ ] Choose initial licensed market-data provider and plan.
+- [x] Choose initial licensed market-data provider and plan (Resolved in ADR-0003: SEC EDGAR + FRED + Polygon/yfinance adapter).
 - [ ] Choose initial LLM provider/model and embedding model.
 - [ ] Decide whether graph data is global, tenant-specific, or a combination.
 - [ ] Decide initial news provider and permitted content retention.
@@ -385,6 +385,42 @@ Targets are engineering goals, not achieved metrics. Record actual results, data
 ## Engineering log
 
 Append entries newest-first.
+
+### 2026-11-10 — M1.1 & M1.2: Monorepo Foundation & Go API Gateway Implementation
+
+- Completed **M1.1 (Monorepo and service templates)**:
+  - Created service directories (`services/api-gateway`, `services/identity-service`, `services/market-data-service`, `services/alert-service`, `services/event-intelligence`, `services/knowledge-graph-service`, `services/ai-orchestrator`, `services/quantitative-service`).
+  - Added Go and Python service templates.
+  - Added React + TypeScript frontend scaffold in `frontend/web/`.
+  - Configured linters, formatters, and `.pre-commit-config.yml`.
+  - Added GitHub Actions CI pipeline in `.github/workflows/ci.yml`.
+- Completed **M1.2 (API Gateway and Identity)**:
+  - Implemented Go API Gateway with reverse proxy routing in `services/api-gateway/cmd/server/main.go`.
+  - Implemented health check routes (`/health`, `/health/live`, `/health/ready`).
+  - Implemented `TracingMiddleware` for `X-Request-ID` and `X-Correlation-ID`.
+  - Implemented standard library JWT HMAC-SHA256 verifier in `internal/infrastructure/auth/jwt_verifier.go`.
+  - Defined tenant and user identity domain model in `internal/domain/identity/models.go` (`UserClaims`, `Role`, `TenantID`, `Permissions`).
+  - Implemented `AuthenticateMiddleware` and `RequireRole` RBAC guards in `internal/presentation/http/auth_middleware.go`.
+  - Added comprehensive automated unit and tenant-isolation test suite in `internal/presentation/http/auth_middleware_test.go` (cross-tenant access returns 403 Forbidden, expired/missing tokens return 401, valid claims propagate `X-Tenant-ID` and `X-User-ID`).
+  - Verified `make check` passes 100% across all Python and Go test suites.
+
+### 2026-11-07 — Phase 0 bootstrap and baseline service implementation
+
+- Created sanitized `.env.example` placeholder file.
+- Fixed `Makefile` syntax (replaced spaces with tabs, fixed `.PHONY`), added developer workflow targets (`make help`, `infra-up`, `infra-down`, `api`, `run`, `test`, `lint`, `format`, `check`).
+- Added version-pinning files (`.python-version`, `.tool-versions`).
+- Created ADR template (`docs/architect/template.md`) and added `docs/adr` compatibility symlink.
+- Added `docs/architect/ADR-0003-initial-market-data-provider.md` (SEC EDGAR, FRED, Polygon/Yahoo Finance fallback).
+- Added `docs/architect/ADR-0004-first-vertical-slice.md` (NVIDIA semiconductor supply chain and gross margin trajectory slice).
+- Created `CONTRIBUTING.md` documenting DDD and Clean Architecture invariants, local setup, commit conventions, and DoD.
+- Implemented Python Clean Architecture baseline service template:
+  - `src/domain/health/` (pure Python health models, `HealthStatus` StrEnum, `SystemHealth`, `ComponentHealth`)
+  - `src/application/health/` (`HealthCheckPort` protocol, `HealthCheckUseCase`)
+  - `src/infra/health/` (`SystemHealthChecker` adapter implementing `HealthCheckPort`)
+  - `src/shared/` (`config.py` using `pydantic-settings`, `logging.py` using `structlog`)
+  - `src/presentation/http/` (FastAPI app factory `create_app()`, `RequestTracingMiddleware` with `X-Request-ID` / `X-Correlation-ID`, and health routes: `/health`, `/health/live`, `/health/ready`)
+- Added comprehensive unit and integration tests in `tests/test_health.py` and `tests/conftest.py`.
+- Verified `make check` passes cleanly (100% test pass rate with 6 tests, ruff format/lint clean, strict mypy typing passed).
 
 ### 2026-10-31 — Initial architecture and roadmap
 

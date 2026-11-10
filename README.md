@@ -536,6 +536,7 @@ Agents return typed, bounded results. They do not independently invent facts or 
 ```python
 from typing import TypedDict
 
+
 class ResearchState(TypedDict):
     research_id: str
     question: str
@@ -565,6 +566,7 @@ Use a persistent LangGraph checkpointer for thread/run recovery. Separate workfl
 from pydantic import BaseModel
 from typing import Literal
 
+
 class Evidence(BaseModel):
     evidence_id: str
     source_id: str
@@ -572,12 +574,9 @@ class Evidence(BaseModel):
     entity_ids: list[str]
     published_at: str | None
     observed_at: str | None
-    evidence_type: Literal[
-        "reported_fact",
-        "calculated_metric",
-        "inference"
-    ]
+    evidence_type: Literal["reported_fact", "calculated_metric", "inference"]
     confidence: float | None
+
 
 class ImpactAssessment(BaseModel):
     affected_entities: list[str]

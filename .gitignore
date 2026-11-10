@@ -151,6 +151,11 @@ activemq-data/
 
 # Environments
 .env
+.env.*
+!.env.example
+!.env.*.example
+!.env.template
+!.env.*.template
 .envrc
 .venv
 env/
@@ -218,3 +223,23 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# React / TypeScript frontend
+node_modules/
+.pnpm-store/
+*.tsbuildinfo
+coverage/
+
+# Go build and test artifacts (keep cmd/server/ source)
+/services/api-gateway/server
+/services/api-gateway/server.exe
+*.test
+*.test.exe
+coverage.out
+
+# Local infrastructure credentials
+/minio.license
+
+# Local assistant state (keep shared commands and agents trackable)
+/.freebuff/
+/.kilo/plans/
