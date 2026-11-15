@@ -227,15 +227,22 @@ __marimo__/
 # React / TypeScript frontend
 node_modules/
 .pnpm-store/
+.vite/
 *.tsbuildinfo
 coverage/
 
 # Go build and test artifacts (keep cmd/server/ source)
-/services/api-gateway/server
-/services/api-gateway/server.exe
+/services/*/server
+/services/*/server.exe
 *.test
 *.test.exe
 coverage.out
+*.prof
+*.pprof
+
+# Local Go workspace (services have independent modules)
+/go.work
+/go.work.sum
 
 # Local infrastructure credentials
 /minio.license
@@ -243,3 +250,10 @@ coverage.out
 # Local assistant state (keep shared commands and agents trackable)
 /.freebuff/
 /.kilo/plans/
+
+# Operating system and editor temporary files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~

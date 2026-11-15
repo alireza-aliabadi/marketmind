@@ -1,0 +1,12 @@
+# Tests load the port-free base explicitly, without compose.override.yml.
+services:
+  postgres:
+    ports: []
+  redis:
+    ports: []
+  kafka:
+    ports: []
+  neo4j:
+    ports: []
+  aistor:
+    ports: []

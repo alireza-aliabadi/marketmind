@@ -8,9 +8,9 @@
 - **Objective:** Advanced AI Engineer portfolio project
 - **Architecture:** Domain-Driven Microservices + Clean Architecture + Event-Driven Architecture
 - **Target plan:** 12 weeks
-- **Current phase:** Phase 0 — Planning / repository bootstrap (Completed)
-- **Overall status:** Phase 0 complete; ready for Phase 1
-- **Last updated:** 2026-11-07
+- **Current phase:** Phase 1: Architecture and platform foundation
+- **Overall status:** M1.1–M1.4 implemented and locally verified; remote CI exit criterion remains pending
+- **Last updated:** 2026-11-14
 
 ### Status legend
 
@@ -27,9 +27,9 @@ Do not mark a task `[x]` until its acceptance criteria have been tested. Add a P
 
 - [x] **ADR-001:** Adopt DDD bounded contexts and independently deployable microservices.
 - [x] **ADR-002:** Apply Clean/Hexagonal Architecture inside services; dependencies point inward.
-- [ ] **ADR-003:** Use Kafka for asynchronous integration; use HTTP/gRPC for suitable synchronous request-response operations.
-- [ ] **ADR-004:** Enforce service data ownership; no cross-service database writes.
-- [ ] **ADR-005:** Use PostgreSQL for transactional records, TimescaleDB for time-series, Neo4j for graph facts, Redis for ephemeral coordination, and S3-compatible object storage for permitted raw artifacts.
+- [x] **ADR-003:** Use Kafka for asynchronous integration; use HTTP/gRPC for suitable synchronous request-response operations. Recorded in ADR-0005.
+- [x] **ADR-004:** Enforce service data ownership; no cross-service database writes. Recorded in ADR-0006 and permission tests.
+- [x] **ADR-005:** Use PostgreSQL for transactional records, TimescaleDB for time-series, Neo4j for graph facts, Redis for ephemeral coordination, and S3-compatible object storage for permitted raw artifacts. M1.3 and ADR-0006.
 - [ ] **ADR-006:** Use LangChain for model/tool integrations and LangGraph for stateful research workflows.
 - [ ] **ADR-007:** Use Langfuse for LLM observability and LangSmith for workflow debugging/evaluation, with OpenTelemetry for cross-service telemetry.
 - [ ] **ADR-008:** Represent sourced/inferred relationships as temporal claims with provenance.
@@ -65,6 +65,8 @@ Do not mark a task `[x]` until its acceptance criteria have been tested. Add a P
 
 ### M1.1 — Monorepo and service templates
 
+Evidence: [Phase 1 verification report](docs/reports/phase-1-verification.md).
+
 - [x] Create service directory structure.
 - [x] Add Go service template.
 - [x] Add Python service template.
@@ -74,39 +76,46 @@ Do not mark a task `[x]` until its acceptance criteria have been tested. Add a P
 
 ### M1.2 — API gateway and identity
 
+Evidence: [Phase 1 verification report](docs/reports/phase-1-verification.md) and
+[ADR-0007](docs/architect/ADR-0007-oidc-identity-foundation.md).
+
 - [x] Implement Go API gateway.
 - [x] Add health/readiness endpoints.
 - [x] Add request ID and correlation ID middleware.
-- [x] Add OIDC/OAuth2 integration.
-- [x] Define organization and user model.
-- [x] Implement role/permission checks.
+- [x] Add OIDC/OAuth2 integration. Configured-issuer discovery, RS256 JWKS, API audience/time/tenant checks and key rotation; no HS256 runtime fallback.
+- [x] Define organization and user model. Identity-service domain models include organization-scoped memberships and active/inactive invariants; persistence/CRUD remain later work.
+- [x] Implement role/permission checks. Enforced on registered sample, market and research proxy routes with method-specific action policies.
 - [x] Add tenant-isolation tests.
 
 ### M1.3 — Local infrastructure
 
-- [ ] Add Docker Compose for PostgreSQL.
-- [ ] Add TimescaleDB extension configuration.
-- [ ] Add Neo4j.
-- [ ] Add Kafka in KRaft mode.
-- [ ] Add Redis.
-- [ ] Add S3-compatible object storage.
-- [ ] Add persistent volumes and health checks.
-- [ ] Add startup/readiness verification.
+- [x] Add Docker Compose for PostgreSQL.
+- [x] Add TimescaleDB extension configuration.
+- [x] Add Neo4j.
+- [x] Add Kafka in KRaft mode.
+- [x] Add Redis.
+- [x] Add S3-compatible object storage.
+- [x] Add persistent volumes and health checks.
+- [x] Add startup/readiness verification.
 
 ### M1.4 — Contracts and architecture governance
 
-- [ ] Add OpenAPI contract conventions.
-- [ ] Add Kafka event envelope and schema versioning.
-- [ ] Define service ownership matrix.
-- [ ] Document synchronous vs asynchronous communication rules.
-- [ ] Add ADRs for architecture decisions.
-- [ ] Verify no cross-service database access.
+- [x] Add OpenAPI contract conventions.
+- [x] Add Kafka event envelope and schema versioning.
+- [x] Define service ownership matrix.
+- [x] Document synchronous vs asynchronous communication rules.
+- [x] Add ADRs for architecture decisions.
+- [x] Verify no cross-service database access. Static boundaries and isolated PostgreSQL owner-role tests; runtime app credentials remain planned.
 
 **Phase 1 exit criteria**
-- [ ] Local infrastructure starts successfully from a clean checkout.
-- [ ] Gateway reaches a sample service.
-- [ ] Authentication and tenant authorization have automated tests.
-- [ ] Event contracts validate in CI.
+- [x] Local infrastructure starts successfully from a clean checkout.
+- [x] Gateway reaches a sample service. Real compiled Go → FastAPI health flow passes `make gateway-test`.
+- [x] Authentication and tenant authorization have automated tests. OIDC/JWKS, registered-route permissions, missing/invalid claims, header spoofing and cross-organization denials are covered.
+- [-] Event contracts validate in CI. Gates and negative/base-revision checks pass locally; observing remote CI requires committing/pushing these changes.
+
+Local acceptance evidence: [Phase 1 verification report](docs/reports/phase-1-verification.md).
+Phase 1 is implemented locally, not yet fully signed off against the remote-CI
+exit criterion. This is not a claim of identity CRUD, ingestion or production IAM.
 
 ---
 
@@ -373,6 +382,7 @@ Targets are engineering goals, not achieved metrics. Record actual results, data
 
 ## Current blockers / decisions
 
+- [!] Observe a successful remote Phase 1 CI run against these changes. No commit/push was requested or performed.
 - [x] Choose initial licensed market-data provider and plan (Resolved in ADR-0003: SEC EDGAR + FRED + Polygon/yfinance adapter).
 - [ ] Choose initial LLM provider/model and embedding model.
 - [ ] Decide whether graph data is global, tenant-specific, or a combination.
@@ -385,6 +395,110 @@ Targets are engineering goals, not achieved metrics. Record actual results, data
 ## Engineering log
 
 Append entries newest-first.
+
+### 2026-11-14 - Phase 1 gap closure and acceptance verification
+
+- Audited the previous status against code: HS256-only authentication, missing
+  organization/membership models, unenforced proxy permissions and absent sample
+  integration were genuine M1.2 gaps. Frontend lint also failed because its ESLint
+  command had no installed/configured linter, and frontend CI was absent.
+- Added configured-issuer OIDC discovery and rotating RS256 JWKS verification,
+  API audience/issuer/signature/time/subject/tenant checks, OAuth2 action scopes,
+  bounded provider calls and fail-closed configuration/startup. Removed the
+  executable's default JWT secret; the legacy HS256 adapter is test-only.
+- Added identity-service organization/user/membership domain models, with external
+  identity keyed by issuer/subject, per-organization roles and inactive/mismatched
+  membership denials. No database registry or provisioning API is claimed.
+- Applied action/method guards to all registered proxy routes. Added explicit
+  sample-health routing, prefix stripping, trusted identity/header replacement,
+  generated tracing propagation, credential stripping and JSON failure responses.
+  Updated the gateway OpenAPI contract and added ADR-0007/setup documentation.
+- Added scoped READMEs so previously empty planned service directories survive
+  checkouts when committed.
+  Added both Go modules to build/test/format/vet/race gates, pinned current OIDC/Go
+  dependencies, and repaired frontend lint/format/build with pinned Oxlint and
+  Prettier. CI now includes real gateway integration and frontend jobs.
+- Verified pre-commit hooks, including strict YAML checks plus safe multi-document
+  parsing specifically for pnpm 12's lockfile. Normalized baseline formatting/end
+  newlines without changing editor settings or unrelated behavior. Diagnosed and
+  fixed test-only Uvicorn shutdown expectations and issuer-startup publication race;
+  repeated race-enabled runtime scenarios subsequently passed.
+- Validation: `make check` passed Ruff lint/format, strict mypy, architecture and
+  contract gates, 134 Python tests (51 opt-in DB tests skipped), both Go modules and
+  frontend builds. Both Go modules passed race tests; `make gateway-test` and two
+  race-enabled repeats passed real routing, OIDC rotation, 200/401/403/405/502 wire
+  contracts, tenant/RBAC denials, downstream outage and shutdown/startup failure.
+- Validation: all 51 actual PostgreSQL owner/schema checks passed separately, and
+  fresh isolated startup/recreation/persistence passed for all five stores. Event
+  immutability checks against `HEAD`, Go module checksums, frozen frontend install
+  and frontend checks with the pinned Node 22.12.0 runtime passed. The existing
+  Starlette/httpx deprecation warning remains. See the linked verification report.
+- Repeated the frozen Python install/tests and frontend install/lint/format/build
+  in fresh disposable dependency environments; all passed without replacing the
+  development environments.
+- Preserved existing uncommitted work, development data, credentials and license.
+  No commit, push or remote workflow was performed; the CI exit flag stays pending.
+
+### 2026-11-12 - M1.3 verification and M1.4 contract governance
+
+- Fresh M1.3 readiness and isolated recreation/persistence checks passed for all
+  five stores, including a TimescaleDB hypertable, Kafka message, and S3 artifact.
+- Added self-contained OpenAPI 3.1 contracts for implemented Go/Python health APIs,
+  producer-response conformance tests, and response/path/status drift checks.
+  Future business APIs and OIDC are not falsely described as implemented.
+- Added versioned CloudEvents/payload schemas, a contract-only filing event,
+  synthetic fixtures, owner/version matching, offline-reference checks, temporal
+  validation, and base-revision immutability checks for schemas/event bindings.
+- Added a machine-readable service ownership matrix, negative Python/Go import
+  fixtures, communication/data-ownership ADRs, and reserved NOLOGIN schema owners.
+- Actual PostgreSQL tests verified seven owners, 42 directed cross-owner table
+  denials, role privilege limits, and schema-USAGE isolation in a private project.
+  Existing development data/credentials were not migrated or overwritten.
+- Added `make contracts-check`, `make architecture-check`, `make ownership-test`,
+  opt-in `make ownership-init`, and CI gates using frozen dependencies. SQL tests
+  require Docker but no AIStor license; runtime LOGIN accounts/IAM remain planned.
+- Validation: `make check` passed Ruff, strict mypy, 133 Python tests and native Go
+  tests; 51 opt-in DB checks passed separately. Local base-ref contract checks,
+  YAML validation, and M1.3 persistence checks passed. The existing Starlette/httpx
+  warning remains; remote CI has not been run because no commit/push was requested.
+- Corrected premature M1.2 completion flags: OIDC, organization modeling, actual
+  proxy-route authorization, and gateway-to-sample integration still need work.
+
+### 2026-11-11 - M1.3 follow-up: Portable Compose overrides
+
+- Replaced custom reset tags in `infra/compose.test.yml` with standard YAML.
+- Moved development-only host bindings into `compose.override.yml`; shared
+  services remain port-free, and the Makefile explicitly loads both development
+  files. Removed the special unsafe YAML-validation exception.
+- Added four configuration-merge regressions covering the shared base, isolated
+  tests, explicit development files, and automatic development override loading.
+- Validation: strict YAML checks, `make check` (76 Python tests and Go tests), and
+  isolated startup/persistence verification passed. Existing development services
+  and their host ports were not restarted or modified.
+
+### 2026-11-11 - M1.3: Local infrastructure and verification
+
+- Completed the existing Compose work with PostgreSQL 18 / TimescaleDB 2.31.0,
+  pinned Redis, Kafka, Neo4j, and AIStor images, health checks, bounded logs,
+  localhost port bindings, and persistent named volumes.
+- Added explicit TimescaleDB initialization and corrected the PostgreSQL 18
+  data-volume layout. Kafka broker logs and KRaft metadata use sibling directories
+  within the same persistent volume; Redis enables AOF persistence.
+- Added `make infra-config`, readiness-gated `make infra-up`, `make infra-check`,
+  isolated `make infra-test`, logs, and optional Kafka UI on port 8081.
+- Added 62 fake-Docker regression cases for readiness, authentication-probe
+  failures, forwarded Compose options, persistence-probe exit propagation, and
+  test cleanup isolation. No business data is seeded in development databases.
+- Documented the valid, untracked AIStor license prerequisite, local credential
+  mapping, host/container addresses, persistence verification, and migration limits.
+- Validation: normal `make infra-up` and authenticated readiness checks passed;
+  isolated clean startup and persistence across container recreation passed for all
+  five stores, including a synthetic TimescaleDB hypertable and a Kafka message.
+- Validation: `make check` passed Ruff, strict mypy, 72 Python tests, and Go tests.
+  Shell syntax and the configured YAML hooks passed. One existing Starlette/httpx
+  deprecation warning remains. A transient Docker Hub pull reset was resolved by
+  retrying; temporary test resources were cleaned up, and development services
+  remain running and healthy.
 
 ### 2026-11-10 — M1.1 & M1.2: Monorepo Foundation & Go API Gateway Implementation
 

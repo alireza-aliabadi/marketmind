@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "envelope": "envelope.json",
+  "events": {
+    "filing.ingested.v1": {
+      "schema": "filing.ingested.v1.json",
+      "producer": "market-data-service",
+      "consumers": ["event-intelligence"],
+      "example": "examples/filing.ingested.v1.json",
+      "status": "contract-only",
+      "delivery": "at-least-once"
+    }
+  }
+}

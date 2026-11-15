@@ -6,16 +6,17 @@ import (
 	"encoding/hex"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 )
 
 type contextKey string
 
 const (
-	RequestIDHeader      = "X-Request-ID"
-	CorrelationIDHeader  = "X-Correlation-ID"
-	RequestIDKey         contextKey = "request_id"
-	CorrelationIDKey     contextKey = "correlation_id"
+	RequestIDHeader                = "X-Request-ID"
+	CorrelationIDHeader            = "X-Correlation-ID"
+	RequestIDKey        contextKey = "request_id"
+	CorrelationIDKey    contextKey = "correlation_id"
 )
 
 func generateID() string {
@@ -26,6 +27,12 @@ func generateID() string {
 	return hex.EncodeToString(bytes)
 }
 
+func validTracingID(value string) bool {
+	return value != "" && len(value) <= 128 && strings.IndexFunc(value, func(r rune) bool {
+		return !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || strings.ContainsRune("._:-", r))
+	}) == -1
+}
+
 // TracingMiddleware injects request ID and correlation ID into headers and context.
 func TracingMiddleware(logger *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
@@ -33,12 +40,12 @@ func TracingMiddleware(logger *slog.Logger) func(http.Handler) http.Handler {
 			start := time.Now()
 
 			reqID := r.Header.Get(RequestIDHeader)
-			if reqID == "" {
+			if len(r.Header.Values(RequestIDHeader)) != 1 || !validTracingID(reqID) {
 				reqID = generateID()
 			}
 
 			corrID := r.Header.Get(CorrelationIDHeader)
-			if corrID == "" {
+			if len(r.Header.Values(CorrelationIDHeader)) != 1 || !validTracingID(corrID) {
 				corrID = reqID
 			}
 
@@ -48,7 +55,9 @@ func TracingMiddleware(logger *slog.Logger) func(http.Handler) http.Handler {
 			ctx := context.WithValue(r.Context(), RequestIDKey, reqID)
 			ctx = context.WithValue(ctx, CorrelationIDKey, corrID)
 
-			reqWithCtx := r.WithContext(ctx)
+			reqWithCtx := r.Clone(ctx)
+			reqWithCtx.Header.Set(RequestIDHeader, reqID)
+			reqWithCtx.Header.Set(CorrelationIDHeader, corrID)
 
 			logger.InfoContext(ctx, "incoming HTTP request",
 				slog.String("method", r.Method),

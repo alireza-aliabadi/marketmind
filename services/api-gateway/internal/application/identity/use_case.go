@@ -2,6 +2,7 @@ package identity
 
 import (
 	"context"
+	"time"
 
 	domain "marketmind/services/api-gateway/internal/domain/identity"
 )
@@ -20,7 +21,14 @@ func (u *UseCase) Authenticate(ctx context.Context, tokenString string) (*domain
 	if tokenString == "" {
 		return nil, domain.ErrUnauthorized
 	}
-	return u.verifier.VerifyToken(ctx, tokenString)
+	claims, err := u.verifier.VerifyToken(ctx, tokenString)
+	if err != nil {
+		return nil, err
+	}
+	if err := claims.Validate(time.Now()); err != nil {
+		return nil, err
+	}
+	return claims, nil
 }
 
 func (u *UseCase) EnforceTenantIsolation(claims *domain.UserClaims, targetTenantID string) error {

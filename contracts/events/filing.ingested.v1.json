@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:marketmind:events:filing.ingested:1.0.0",
+  "title": "FilingIngestedV1",
+  "description": "Contract for future permitted raw filing ingestion, not an implemented publisher or an extracted financial claim.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "provider": {"const": "sec-edgar"},
+    "source_id": {
+      "type": "string",
+      "pattern": "^[0-9]{10}-[0-9]{2}-[0-9]{6}$",
+      "description": "Provider-native SEC accession number; retained independently of internal IDs."
+    },
+    "source_url": {"type": "string", "format": "uri", "pattern": "^https://", "maxLength": 2048},
+    "observed_at": {"type": "string", "format": "date-time", "pattern": "Z$"},
+    "published_at": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "pattern": "Z$",
+      "description": "Provider publication instant, or null when unavailable. Never inferred from ingestion time."
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "uri": {"type": "string", "format": "uri", "pattern": "^s3://[a-z0-9.-]+/raw/filings/.+", "maxLength": 2048},
+        "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "media_type": {"type": "string", "enum": ["text/plain", "text/html", "application/json", "application/pdf"]}
+      },
+      "required": ["uri", "sha256", "media_type"]
+    }
+  },
+  "required": ["provider", "source_id", "source_url", "observed_at", "published_at", "artifact"]
+}

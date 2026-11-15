@@ -1,0 +1,208 @@
+{
+  "version": 1,
+  "services": [
+    {
+      "name": "api-gateway",
+      "root": "services/api-gateway",
+      "status": "implemented",
+      "language": "go",
+      "import_root": "marketmind/services/api-gateway",
+      "composition_roots": ["cmd/server"],
+      "postgresql": null,
+      "redis": [
+        {
+          "namespace": "api-gateway:*",
+          "responsibility": "Ephemeral rate-limit counters; no business source of truth",
+          "status": "PLANNED"
+        }
+      ],
+      "s3": [],
+      "neo4j": []
+    },
+    {
+      "name": "platform-sample",
+      "root": "src",
+      "status": "template",
+      "language": "python",
+      "import_root": "src",
+      "composition_roots": ["presentation/http/main.py", "presentation/http/health.py"],
+      "postgresql": null,
+      "redis": [],
+      "s3": [],
+      "neo4j": []
+    },
+    {
+      "name": "identity-service",
+      "root": "services/identity-service",
+      "status": "template",
+      "language": "go",
+      "import_root": "marketmind/services/identity-service",
+      "composition_roots": [],
+      "postgresql": {
+        "schema": "identity",
+        "owner_role": "mm_identity",
+        "status": "RESERVED",
+        "role_login": false,
+        "runtime_credentials": "PLANNED"
+      },
+      "redis": [],
+      "s3": [],
+      "neo4j": []
+    },
+    {
+      "name": "market-data-service",
+      "root": "services/market-data-service",
+      "status": "planned",
+      "language": "go",
+      "import_root": "marketmind/services/market-data-service",
+      "composition_roots": [],
+      "postgresql": {
+        "schema": "market_data",
+        "owner_role": "mm_market_data",
+        "status": "RESERVED",
+        "role_login": false,
+        "runtime_credentials": "PLANNED"
+      },
+      "redis": [],
+      "s3": [
+        {
+          "namespace": "raw/filings/*",
+          "responsibility": "Permitted raw filing artifacts with source IDs, URLs and hashes",
+          "readers": ["event-intelligence"],
+          "status": "PLANNED"
+        }
+      ],
+      "neo4j": []
+    },
+    {
+      "name": "alert-service",
+      "root": "services/alert-service",
+      "status": "planned",
+      "language": "go",
+      "import_root": "marketmind/services/alert-service",
+      "composition_roots": [],
+      "postgresql": {
+        "schema": "alerts",
+        "owner_role": "mm_alerts",
+        "status": "RESERVED",
+        "role_login": false,
+        "runtime_credentials": "PLANNED"
+      },
+      "redis": [
+        {
+          "namespace": "alert-service:*",
+          "responsibility": "TTL-bound alert deduplication and delivery coordination",
+          "status": "PLANNED"
+        }
+      ],
+      "s3": [],
+      "neo4j": []
+    },
+    {
+      "name": "event-intelligence",
+      "root": "services/event-intelligence",
+      "status": "planned",
+      "language": "python",
+      "import_root": "event_intelligence",
+      "composition_roots": [],
+      "postgresql": {
+        "schema": "event_intelligence",
+        "owner_role": "mm_event_intelligence",
+        "status": "RESERVED",
+        "role_login": false,
+        "runtime_credentials": "PLANNED"
+      },
+      "redis": [],
+      "s3": [
+        {
+          "namespace": "event-intelligence/artifacts/*",
+          "responsibility": "Derived extraction artifacts and evidence offsets; not raw filing ownership",
+          "status": "PLANNED"
+        }
+      ],
+      "neo4j": []
+    },
+    {
+      "name": "knowledge-graph-service",
+      "root": "services/knowledge-graph-service",
+      "status": "planned",
+      "language": "python",
+      "import_root": "knowledge_graph_service",
+      "composition_roots": [],
+      "postgresql": {
+        "schema": "knowledge_graph",
+        "owner_role": "mm_knowledge_graph",
+        "status": "RESERVED",
+        "role_login": false,
+        "runtime_credentials": "PLANNED"
+      },
+      "redis": [],
+      "s3": [],
+      "neo4j": [
+        {
+          "namespace": "knowledge-graph-service",
+          "responsibility": "Temporal entities, claims and sourced or inferred relationships",
+          "status": "PLANNED"
+        }
+      ]
+    },
+    {
+      "name": "ai-orchestrator",
+      "root": "services/ai-orchestrator",
+      "status": "planned",
+      "language": "python",
+      "import_root": "ai_orchestrator",
+      "composition_roots": [],
+      "postgresql": {
+        "schema": "ai_orchestrator",
+        "owner_role": "mm_ai_orchestrator",
+        "status": "RESERVED",
+        "role_login": false,
+        "runtime_credentials": "PLANNED"
+      },
+      "redis": [
+        {
+          "namespace": "ai-orchestrator:*",
+          "responsibility": "TTL-bound workflow coordination; durable checkpoints remain service-owned",
+          "status": "PLANNED"
+        }
+      ],
+      "s3": [
+        {
+          "namespace": "ai-orchestrator/reports/*",
+          "responsibility": "Versioned research report artifacts with evidence references",
+          "status": "PLANNED"
+        }
+      ],
+      "neo4j": []
+    },
+    {
+      "name": "quantitative-service",
+      "root": "services/quantitative-service",
+      "status": "planned",
+      "language": "python",
+      "import_root": "quantitative_service",
+      "composition_roots": [],
+      "postgresql": {
+        "schema": "quantitative",
+        "owner_role": "mm_quantitative",
+        "status": "RESERVED",
+        "role_login": false,
+        "runtime_credentials": "PLANNED"
+      },
+      "redis": [],
+      "s3": [],
+      "neo4j": []
+    }
+  ],
+  "topics": [
+    {
+      "name": "filing.ingested.v1",
+      "owner": "market-data-service",
+      "publisher": "market-data-service",
+      "consumers": ["event-intelligence"],
+      "status": "PLANNED",
+      "contract_status": "contract-only"
+    }
+  ]
+}

@@ -1,8 +1,10 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:marketmind:event-envelope:1.0.0",
   "title": "MarketMindEventEnvelope",
-  "description": "Standard CloudEvents v1.0 compatible envelope for MarketMind Kafka topics.",
+  "description": "CloudEvents 1.0 JSON envelope. Its schema version is independent of the CloudEvents protocol version and event payload version.",
   "type": "object",
+  "additionalProperties": false,
   "properties": {
     "specversion": {
       "type": "string",
@@ -10,19 +12,25 @@
     },
     "id": {
       "type": "string",
+      "format": "uuid",
       "description": "Unique UUID for the event occurrence."
     },
     "source": {
       "type": "string",
+      "format": "uri",
+      "maxLength": 256,
       "description": "URI identifying the producer service (e.g., marketmind/market-data-service)."
     },
     "type": {
       "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*(\\.[a-z][a-z0-9-]*)+\\.v[1-9][0-9]*$",
+      "maxLength": 128,
       "description": "Domain event type following reverse-DNS or domain format (e.g., filing.ingested.v1)."
     },
     "time": {
       "type": "string",
       "format": "date-time",
+      "pattern": "Z$",
       "description": "ISO 8601 UTC timestamp when event occurred."
     },
     "datacontenttype": {
@@ -31,12 +39,27 @@
     },
     "correlationid": {
       "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9._:-]+$",
       "description": "Trace correlation identifier spanning multiple requests."
+    },
+    "dataschema": {
+      "type": "string",
+      "format": "uri",
+      "maxLength": 256,
+      "description": "Immutable, versioned payload schema identifier from the local event registry."
+    },
+    "tenantid": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Required by tenant-scoped event contracts; omitted for public source facts."
     },
     "data": {
       "type": "object",
       "description": "Event-specific domain payload."
     }
   },
-  "required": ["specversion", "id", "source", "type", "time", "datacontenttype", "data"]
+  "required": ["specversion", "id", "source", "type", "time", "datacontenttype", "dataschema", "correlationid", "data"]
 }

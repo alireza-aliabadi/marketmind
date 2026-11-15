@@ -16,6 +16,8 @@ type JWTVerifier struct {
 	secretKey []byte
 }
 
+// NewJWTVerifier is retained for legacy prototype tests only. The running gateway
+// exclusively uses OIDC discovery/JWKS and does not select this adapter.
 func NewJWTVerifier(secret string) *JWTVerifier {
 	return &JWTVerifier{
 		secretKey: []byte(secret),
@@ -75,11 +77,14 @@ func (v *JWTVerifier) VerifyToken(ctx context.Context, tokenStr string) (*domain
 	}
 
 	now := time.Now().Unix()
-	if rawClaims.Exp > 0 && now > rawClaims.Exp {
+	if rawClaims.Exp <= 0 || rawClaims.Iat <= 0 || rawClaims.Iat > now {
+		return nil, domain.ErrInvalidToken
+	}
+	if now >= rawClaims.Exp {
 		return nil, domain.ErrExpiredToken
 	}
 
-	return &domain.UserClaims{
+	claims := &domain.UserClaims{
 		Subject:     rawClaims.Sub,
 		TenantID:    rawClaims.TenantID,
 		Email:       rawClaims.Email,
@@ -87,5 +92,9 @@ func (v *JWTVerifier) VerifyToken(ctx context.Context, tokenStr string) (*domain
 		Permissions: rawClaims.Permissions,
 		IssuedAt:    time.Unix(rawClaims.Iat, 0),
 		ExpiresAt:   time.Unix(rawClaims.Exp, 0),
-	}, nil
+	}
+	if err := claims.Validate(time.Now()); err != nil {
+		return nil, err
+	}
+	return claims, nil
 }

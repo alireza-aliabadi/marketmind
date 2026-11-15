@@ -16,6 +16,8 @@ dev = [
   "httpx",
   "ruff",
   "mypy",
+  "jsonschema[format-nongpl]",
+  "openapi-spec-validator",
 ]
 
 [tool.poetry]

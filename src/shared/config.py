@@ -27,9 +27,7 @@ class Settings(BaseSettings):
     postgres_db: str = "marketmind"
     postgres_user: str = "marketmind"
     postgres_password: str = "change-me-local"
-    database_url: str = (
-        "postgresql+psycopg://marketmind:change-me-local@localhost:5432/marketmind"
-    )
+    database_url: str = "postgresql+psycopg://marketmind:change-me-local@localhost:5432/marketmind"
 
     # Redis
     redis_url: str = "redis://localhost:6379/0"

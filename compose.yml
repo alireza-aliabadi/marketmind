@@ -1,114 +1,185 @@
 name: marketmind
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   postgres:
-    profile: ["infra"]
-    image: postgres:18-alpine
+    profiles: ["infra"]
+    image: timescale/timescaledb:2.31.0-pg18
+    restart: unless-stopped
+    logging: *logging
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-marketmind}
-      POSTGRES_USER: ${POSTGRES_USER:-alireza}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-local}
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: ${POSTGRES_USER:-marketmind}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      PGDATA: /var/lib/postgresql/18/docker
+      TIMESCALEDB_TELEMETRY: "off"
+      TS_TUNE_MEMORY: "1GB"
+      TS_TUNE_NUM_CPUS: "2"
+    command:
+      - postgres
+      - -c
+      - shared_preload_libraries=timescaledb
     volumes:
-      - postgers_data:/var/lib/postgres
+      - postgres_data:/var/lib/postgresql
+      - type: bind
+        source: ./infra/postgres/init/010-timescaledb.sql
+        target: /docker-entrypoint-initdb.d/010-timescaledb.sql
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./infra/postgres/init/020-service-ownership.sql
+        target: /docker-entrypoint-initdb.d/020-service-ownership.sql
+        read_only: true
+        bind:
+          create_host_path: false
+    mem_limit: 1g
+    shm_size: 256mb
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      test:
+        - CMD-SHELL
+        - >-
+          PGPASSWORD="$${POSTGRES_PASSWORD}"
+          psql -h 127.0.0.1
+          -U "$${POSTGRES_USER}"
+          -d "$${POSTGRES_DB}"
+          -X -v ON_ERROR_STOP=1 -Atqc
+          "SELECT EXISTS (
+            SELECT 1 FROM pg_extension WHERE extname = 'timescaledb'
+          )"
+          | grep -qx t
       interval: 5s
       timeout: 5s
-      retries: 5
-    
+      retries: 20
+      start_period: 30s
+
   redis:
-    profile: ["infra"]
-    image: redis:7-alpine
-    container_name: marketmind-redis
-    ports:
-      - "6379:6379"
+    profiles: ["infra"]
+    image: redis:7.4.12-alpine3.22
+    restart: unless-stopped
+    logging: *logging
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec"]
     volumes:
       - redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
-      retries: 8
+      retries: 12
+      start_period: 5s
 
   kafka:
-    profile: ["infra"]
+    profiles: ["infra"]
     image: apache/kafka:4.4.0
     restart: unless-stopped
-    container_name: marketmind-kafka
-    ports:
-      - "9092:9092"
+    logging: *logging
+    hostname: kafka
     environment:
-      # Node Roles & KRaft settings
-      KAFKA_NODE_ID: 1             
+      # Stable single-node KRaft identity for local development.
+      CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
+      KAFKA_NODE_ID: "1"
       KAFKA_PROCESS_ROLES: broker,controller
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
-      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER 
-          
-      # Listeners (Internal: 29092 for other containers, External: 9092 for host)
-      KAFKA_LISTENERS: PLAINTEXT://:29092,EXTERNAL://:9092,CONTROLLER://:9093    
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+
+      # Containers use kafka:29092; host applications use localhost:9092.
+      KAFKA_LISTENERS: PLAINTEXT://:29092,EXTERNAL://:9092,CONTROLLER://:9093
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,EXTERNAL://localhost:9092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-    
-      # Development settings
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1           
-      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_LOG_DIRS: /var/lib/kafka/data/logs
+      KAFKA_METADATA_LOG_DIR: /var/lib/kafka/data/metadata
+
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: "1"
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: "0"
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_HEAP_OPTS: "-Xms128m -Xmx512m"
     volumes:
       - kafka_data:/var/lib/kafka/data
-    
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          /opt/kafka/bin/kafka-broker-api-versions.sh
+          --bootstrap-server kafka:29092
+          >/dev/null 2>&1
+      interval: 15s
+      timeout: 10s
+      retries: 12
+      start_period: 45s
+
   kafka-ui:
-    image: provectuslabs/kafka-ui:latest
-    container_name: marketmind-kafka-ui
-    restart: unless-stopped 
-    ports:
-      - "8080:8080"
-    environment:   
-      DYNAMIC_CONFIG_ENABLED: 'true'
+    profiles: ["tools"]
+    image: provectuslabs/kafka-ui:v0.7.2
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      DYNAMIC_CONFIG_ENABLED: "true"
       KAFKA_CLUSTERS_0_NAME: local-cluster
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
     depends_on:
-      - kafka
+      kafka:
+        condition: service_healthy
 
   neo4j:
-    profile: ["infra"]
-    image: neo4j:5.26
-    container_name: marketmind-neo4j
+    profiles: ["infra"]
+    image: neo4j:5.26.33-community
+    restart: unless-stopped
+    logging: *logging
     environment:
-      NEO4J_AUTH: ${NEO4J_USERNAME:-neo4j}/${NEO4J_PASSWORD:-change-me-local}
-    ports:
-      - "7474:7474"
-      - "7687:7687"
+      NEO4J_AUTH: "neo4j/${NEO4J_PASSWORD:?Set NEO4J_PASSWORD in .env}"
+      NEO4J_server_memory_heap_initial__size: 256m
+      NEO4J_server_memory_heap_max__size: 512m
+      NEO4J_server_memory_pagecache_size: 256m
     volumes:
       - neo4j_data:/data
     healthcheck:
-      test: ["CMD-SHELL", "cypher-shell -u $${NEO4J_USERNAME:-neo4j} -p $${NEO4J_PASSWORD:-change-me-local} 'RETURN 1'"]
+      test:
+        - CMD-SHELL
+        - >-
+          cypher-shell --address bolt://localhost:7687
+          --username neo4j --password "$${NEO4J_AUTH#*/}"
+          "RETURN 1" >/dev/null
       interval: 10s
-      timeout: 5s
-      retries: 8
-      
+      timeout: 10s
+      retries: 18
+      start_period: 45s
+
   aistor:
-    image: quay.io/minio/aistor/minio:latest
-    container_name: marketmind-aistor
+    profiles: ["infra"]
+    image: quay.io/minio/aistor/minio:RELEASE.2026-09-19T17-05-25Z
     restart: unless-stopped
-    profile: ["infra"]
-    ports:
-      - "9000:9000"
-      - "9001:9001"
+    logging: *logging
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-alireza}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-change-me-local}
+      # One credential source keeps the local server and application aligned.
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:?Set MINIO_ACCESS_KEY in .env}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:?Set MINIO_SECRET_KEY in .env}
     volumes:
       - aistor_data:/mnt/data
-      - ./minio.license:/minio.license:ro
+      - type: bind
+        source: ./minio.license
+        target: /minio.license
+        read_only: true
+        bind:
+          create_host_path: false
     command: >
       server /mnt/data
       --console-address ":9001"
       --license /minio.license
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 30s
 
-  volumes:
+volumes:
   postgres_data:
   redis_data:
   kafka_data:

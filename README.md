@@ -965,27 +965,82 @@ internal/
 
 Prerequisites:
 
-- Docker Engine / Docker Compose
-- Go toolchain
-- Python 3.12 or a compatible version selected by the dependency lock
-- Node.js LTS and package manager
+- Docker Engine / Docker Compose 2.24.4+
+- Go 1.25+ (pinned/tested toolchain: 1.26.5)
+- Python 3.14+
+- Node.js 22.12.0+ and pnpm 12.18.0
 - `uv` or another pinned Python dependency manager
 - Make
+- A valid, untracked AIStor `minio.license` beside `compose.yml`
 
-The exact compose file, commands, ports, and environment variables should be added as implementation lands. Do not document a command as working until it has been executed in CI or a clean local environment.
+M1.3 infrastructure is implemented and verified. PostgreSQL 18 with TimescaleDB
+2.31.0, Kafka in KRaft mode, Neo4j, Redis, and MinIO AIStor have pinned images,
+health checks, and persistent named volumes. Configure local credentials in
+`.env` using `.env.example`; preserve existing settings and never commit real
+API keys, credentials, or licenses.
 
-Planned developer commands:
+Verified developer commands:
 
 ```bash
+uv sync --extra dev --frozen
+pnpm --dir frontend/web install --frozen-lockfile
+make check
+make gateway-test
+make frontend-check
+make infra-config
 make infra-up
-make migrate
+make infra-check
+make infra-test
+make contracts-check
+make architecture-check
+make ownership-test
 make test
 make lint
 make run
 make infra-down
 ```
 
-Environment configuration should be documented in `.env.example`. Never commit real API keys, credentials, or provider secrets.
+`make infra-up` enables the infrastructure profile and waits for passing health
+checks before verifying authenticated access. `make infra-test` independently
+tests clean startup and data survival across container recreation in a temporary
+Docker project; it does not overwrite `.env` or modify development databases.
+`make infra-down` preserves development volumes. `make infra-tools` optionally
+starts Kafka UI at `http://localhost:8081` without competing with the Go gateway
+on port 8080.
+
+Shared services are defined without host bindings in `compose.yml`. Development
+uses `compose.override.yml` for the existing localhost ports; the Makefile loads
+both files explicitly. Tests load only the shared base and `infra/compose.test.yml`,
+so they stay port-free without Compose-specific YAML tags.
+
+See [Local Infrastructure](CONTRIBUTING.md#local-infrastructure) for host/container
+connection addresses, the AIStor license prerequisite, and migration precautions.
+Business schemas, market-data migrations, and ingestion pipelines belong to later
+milestones; `make migrate` is not implemented yet.
+
+M1.4 adds [versioned API/event contracts](contracts/README.md), a
+[service ownership matrix](contracts/service-ownership.json), communication and
+data-ownership ADRs, producer conformance tests, and executable architecture/SQL
+permission gates. The default `make check` validates contracts and boundaries;
+`make ownership-test` separately tests real PostgreSQL access without an AIStor
+license. Existing database volumes are not automatically migrated.
+
+M1.2 now verifies OIDC/OAuth2 API bearer tokens through discovery and rotating
+RS256 JWKS, enforces tenant-scoped route permissions, and reaches the actual Python
+sample through three protected health paths. `make gateway-test` exercises the
+real Go → FastAPI flow without Docker, `.env` or an external identity account.
+The identity service defines tested organization/user/membership domain models;
+its persistence/CRUD/provisioning APIs are not implemented. See
+[gateway setup](services/api-gateway/README.md) and
+[ADR-0007](docs/architect/ADR-0007-oidc-identity-foundation.md) for the claim contract,
+manual OIDC configuration, trust boundary and remaining production security work.
+
+The frontend scaffold now has working pinned lint/format/build gates and CI, and
+both Go modules have build/unit/race gates. These are engineering proof points,
+not claims of implemented ingestion, GraphRAG, agents or frontend product pages.
+Phase 1 implementation and acceptance commands are locally verified; a remote CI
+run still requires committing/pushing the changes. See the
+[verification report](docs/reports/phase-1-verification.md) for actual evidence.
 
 ## 16. Portfolio demonstration
 
@@ -1038,4 +1093,7 @@ A milestone is complete when:
 
 ---
 
-**Status:** Architecture and implementation plan. This README describes the intended system; it does not claim that the services or milestones have already been implemented.
+**Status:** Phase 1 implementation and local verification complete; remote CI
+execution pending. See [PROGRESS.md](PROGRESS.md) and the
+[verification report](docs/reports/phase-1-verification.md). Later-phase architecture
+describes the intended system, not completed functionality.
