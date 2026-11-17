@@ -30,8 +30,8 @@ This directory contains cross-service interface definitions:
 ID. `events/registry.json` pins each event type to a versioned payload schema,
 producer, consumers, delivery semantics, and a synthetic validation example.
 
-`filing.ingested.v1` is a **contract-only Phase 2 boundary**, not an implemented
-publisher or a real filing. The example uses a reserved `.example` source URL and
+`filing.ingested.v1` remains a **contract-only artifact boundary**, not an implemented
+document publisher or real filing. The example uses a reserved `.example` source URL and
 an illustrative artifact/hash. No provider was contacted or financial claim
 verified by this fixture.
 
@@ -39,6 +39,20 @@ Preserve provider identity, source URL, artifact hash, observation time, and kno
 publication time. Unknown publication time is null; invalid ordering is rejected.
 Consumers derive raw-filing replay identity from provider/source ID/artifact hash.
 That identity is not an exactly-once delivery or storage guarantee.
+
+M2 implements `market.filings.raw.v1`, `market.economics.raw.v1`,
+`market.prices.raw.v1` and `market.ingestion.dlq.v1`. Raw means minimally normalized
+snapshots, not extracted claims/document bytes. The immutable CloudEvents envelope
+is reused; new closed payloads carry replay keys, native provenance, exact decimals,
+observation/vintage/adjustment/delay semantics and source permissions. Acceptance
+uses synthetic providers with actual stores, not licensed live-data claims.
+
+The owner atomically queues receipt/outbox, separately relays and idempotently
+applies raw records before offset acknowledgement. Failures preserve original
+bytes and stage-specific IDs; replay is explicit, validated and audited. DLQ
+inspection/replay is an operator responsibility, not an automatic claim/AI
+consumer. `make market-data-test` validates actual Kafka/outbox envelopes against
+these schemas. See ADR-0008/ADR-0009 and through-M3.1 evidence.
 
 Closed payload schemas and IDs already present in the pull-request base are
 immutable. A structural change gets a new major event type and schema file; old

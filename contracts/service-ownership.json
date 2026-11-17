@@ -52,10 +52,10 @@
     {
       "name": "market-data-service",
       "root": "services/market-data-service",
-      "status": "planned",
+      "status": "implemented",
       "language": "go",
       "import_root": "marketmind/services/market-data-service",
-      "composition_roots": [],
+      "composition_roots": ["cmd/market-data"],
       "postgresql": {
         "schema": "market_data",
         "owner_role": "mm_market_data",
@@ -125,10 +125,10 @@
     {
       "name": "knowledge-graph-service",
       "root": "services/knowledge-graph-service",
-      "status": "planned",
+      "status": "template",
       "language": "python",
       "import_root": "knowledge_graph_service",
-      "composition_roots": [],
+      "composition_roots": ["knowledge_graph_service/presentation/migrate.py"],
       "postgresql": {
         "schema": "knowledge_graph",
         "owner_role": "mm_knowledge_graph",
@@ -203,6 +203,26 @@
       "consumers": ["event-intelligence"],
       "status": "PLANNED",
       "contract_status": "contract-only"
+    },
+    {
+      "name": "market.filings.raw.v1", "owner": "market-data-service",
+      "publisher": "market-data-service", "consumers": ["market-data-service"],
+      "status": "IMPLEMENTED", "contract_status": "implemented"
+    },
+    {
+      "name": "market.economics.raw.v1", "owner": "market-data-service",
+      "publisher": "market-data-service", "consumers": ["market-data-service"],
+      "status": "IMPLEMENTED", "contract_status": "implemented"
+    },
+    {
+      "name": "market.prices.raw.v1", "owner": "market-data-service",
+      "publisher": "market-data-service", "consumers": ["market-data-service"],
+      "status": "IMPLEMENTED", "contract_status": "implemented"
+    },
+    {
+      "name": "market.ingestion.dlq.v1", "owner": "market-data-service",
+      "publisher": "market-data-service", "consumers": ["market-data-service"],
+      "status": "IMPLEMENTED", "contract_status": "implemented"
     }
   ]
 }

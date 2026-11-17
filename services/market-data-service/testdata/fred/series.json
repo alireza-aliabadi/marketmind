@@ -1,0 +1,10 @@
+{
+  "seriess": [{
+    "id": "TESTSERIES",
+    "title": "SYNTHETIC economic series (not FRED content)",
+    "units": "Index",
+    "frequency": "Monthly",
+    "seasonal_adjustment": "Not Seasonally Adjusted",
+    "notes": "SYNTHETIC fixture; copyright/attribution notices must survive normalization."
+  }]
+}

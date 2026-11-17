@@ -277,7 +277,7 @@ def load_manifest(root: Path) -> tuple[list[Service], list[Issue]]:
     topics = manifest.get("topics")
     topic_names: set[str] = set()
     if not isinstance(topics, list):
-        problem(1, "topics must be an array of PLANNED contract-only responsibilities")
+        problem(1, "topics must be an array of declared versioned responsibilities")
     else:
         for topic in topics:
             if not isinstance(topic, dict) or not isinstance(topic.get("name"), str):
@@ -300,8 +300,13 @@ def load_manifest(root: Path) -> tuple[list[Service], list[Issue]]:
                 or len(set(consumers)) != len(consumers)
             ):
                 problem(line, f"{name}: consumers must be unique registered services")
-            if topic.get("status") != "PLANNED" or topic.get("contract_status") != "contract-only":
-                problem(line, f"{name}: topic is PLANNED and contract-only, not provisioned")
+            if (topic.get("status"), topic.get("contract_status")) not in {
+                ("PLANNED", "contract-only"),
+                ("IMPLEMENTED", "implemented"),
+            }:
+                problem(
+                    line, f"{name}: topic status must agree with planned or implemented contract"
+                )
     return services, issues
 
 

@@ -17,10 +17,10 @@ cmd/ or src/
 |---|---|---|---|---|
 | [`api-gateway`](./api-gateway) | Go | Routing and OIDC/RBAC foundation; rate limits/SSE planned | Redis (planned) | Implemented Phase 1 platform API |
 | [`identity-service`](./identity-service) | Go | Users, organizations and scoped memberships | PostgreSQL (reserved) | Tested domain models; API/persistence planned |
-| `market-data-service` | Go | Market pricing, SEC EDGAR filings, FRED data ingestion | PostgreSQL + TimescaleDB | Planned; directory README added |
+| `market-data-service` | Go | SEC metadata, FRED and Massive daily-price ingestion | PostgreSQL + TimescaleDB | M2 CLI/outbox/Kafka/persistence verified with synthetic providers |
 | `alert-service` | Go | Real-time threshold and event alerts | PostgreSQL + Redis | Planned; directory README added |
 | `event-intelligence` | Python | SEC filing narrative parser, corporate event extraction | PostgreSQL + MinIO | Planned; directory README added |
-| `knowledge-graph-service` | Python | Temporal entity and claim extraction, GraphRAG queries | Neo4j + PostgreSQL | Planned; directory README added |
+| `knowledge-graph-service` | Python | Canonical identities/schema; claims/retrieval planned | Neo4j + PostgreSQL (reserved) | M3.1 schema verified; M3.2+ unimplemented |
 | `ai-orchestrator` | Python | LangGraph research workflows, multi-agent coordination | PostgreSQL + Checkpointer | Planned; directory README added |
 | `quantitative-service` | Python | Deterministic calculations, financial formulas, metrics | PostgreSQL | Planned; directory README added |
 

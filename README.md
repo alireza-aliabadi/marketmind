@@ -1,10 +1,24 @@
 # MarketMind AI
 
+Phase 2 now includes a locally verified **future production-ingestion profile**:
+secure transports, DML-only role, supervised workers, shared quotas/journal,
+restore/retry checks and patched runtime. Live sources remain disabled until
+actual access/grants and deployment acceptance exist. See
+[hardening evidence](docs/reports/phase-2-production-hardening.md) and the
+[release runbook](docs/runbooks/phase-2-production.md). M3.2/AI remain unimplemented.
+
 **Agentic Market Intelligence Platform powered by Domain-Driven Microservices, Clean Architecture, Event-Driven Integration, Temporal Knowledge Graphs, and GraphRAG.**
 
 > Portfolio project: an evidence-backed market research platform that connects companies, financial data, corporate events, macroeconomic indicators, and market relationships over time. It uses specialized AI workflows to investigate questions, retrieve supporting evidence, calculate reproducible metrics, and produce explainable research reports.
 >
 > **Product boundary:** MarketMind is a research and decision-support product. It does not execute trades, provide guaranteed predictions, or represent personalized investment advice.
+
+**Implemented boundary:** M2.1–M2.4 ingestion and M3.1 graph-schema foundation are
+locally verified, preserving the existing implementation. Acceptance uses synthetic
+provider data with actual Kafka/PostgreSQL/TimescaleDB/Neo4j components. M3.2+ AI,
+retrieval and research remain unimplemented. See
+[evidence](docs/reports/through-m3.1-verification.md) and the
+[code-free manual AI requirements](docs/requirements/ai-manual-handoff.md).
 
 ---
 
@@ -986,6 +1000,8 @@ uv sync --extra dev --frozen
 pnpm --dir frontend/web install --frozen-lockfile
 make check
 make gateway-test
+make market-data-test
+make graph-schema-test
 make frontend-check
 make infra-config
 make infra-up
@@ -1015,8 +1031,10 @@ so they stay port-free without Compose-specific YAML tags.
 
 See [Local Infrastructure](CONTRIBUTING.md#local-infrastructure) for host/container
 connection addresses, the AIStor license prerequisite, and migration precautions.
-Business schemas, market-data migrations, and ingestion pipelines belong to later
-milestones; `make migrate` is not implemented yet.
+Market/graph migrations now have explicit operator commands `make market-migrate`
+and `make graph-migrate`; neither automatically touches existing volumes. Export
+reviewed, separately provisioned operator/runtime settings before manual use.
+Migration/ingestion CLIs do not load `.env` or use administrator runtime fallbacks.
 
 M1.4 adds [versioned API/event contracts](contracts/README.md), a
 [service ownership matrix](contracts/service-ownership.json), communication and
@@ -1035,12 +1053,31 @@ its persistence/CRUD/provisioning APIs are not implemented. See
 [ADR-0007](docs/architect/ADR-0007-oidc-identity-foundation.md) for the claim contract,
 manual OIDC configuration, trust boundary and remaining production security work.
 
-The frontend scaffold now has working pinned lint/format/build gates and CI, and
-both Go modules have build/unit/race gates. These are engineering proof points,
-not claims of implemented ingestion, GraphRAG, agents or frontend product pages.
-Phase 1 implementation and acceptance commands are locally verified; a remote CI
-run still requires committing/pushing the changes. See the
-[verification report](docs/reports/phase-1-verification.md) for actual evidence.
+The frontend has pinned lint/format/build gates; all three Go modules have
+build/unit/race gates. Phase 1 evidence remains in its
+[report](docs/reports/phase-1-verification.md). Remote CI has not been observed.
+
+The [market-data CLI](services/market-data-service/README.md) implements metadata/
+time-series provider ports, exact decimals, permission-gated sources, transactional
+receipt/outbox, Kafka/DLQ/replay, owned persistence and bounded provenance/freshness
+queries. `make market-data-test` runs actual private-store workflows, including
+the compiled CLI, without live financial data/grants. FRED's current terms prohibit
+retention/AI development absent permission; Massive public/multi-tenant/AI rights
+require review. API keys are not licenses. Source AI-use policy defaults to denied.
+See ADR-0008/ADR-0009.
+
+M3.1 adds [canonical identities/schema](docs/data-model/graph-schema.md), eleven
+Neo4j uniqueness constraints and nine explicit range indexes, with additive
+checksums and reserved-name conflict checks. `make graph-schema-test` uses a
+private Community instance, not a populated business knowledge graph. Community
+constraints/indexes do not enforce provenance, time or tenant visibility.
+
+No filing-document acquisition/S3 artifact publisher, claim model/ingestion,
+entity-resolution workflow, temporal queries, embeddings, GraphRAG, LangGraph,
+agents or reports are implemented. The
+[manual AI handoff](docs/requirements/ai-manual-handoff.md) is requirements and
+acceptance criteria only; work stops before M3.2. See
+[through-M3.1 evidence](docs/reports/through-m3.1-verification.md).
 
 ## 16. Portfolio demonstration
 
@@ -1093,7 +1130,8 @@ A milestone is complete when:
 
 ---
 
-**Status:** Phase 1 implementation and local verification complete; remote CI
-execution pending. See [PROGRESS.md](PROGRESS.md) and the
-[verification report](docs/reports/phase-1-verification.md). Later-phase architecture
-describes the intended system, not completed functionality.
+**Status:** Locally implemented/verified through M3.1; stopped before M3.2.
+Remote CI, live source grants/accounts and production hardening remain pending.
+See [PROGRESS.md](PROGRESS.md), [evidence](docs/reports/through-m3.1-verification.md)
+and [manual AI requirements](docs/requirements/ai-manual-handoff.md). Later-phase
+architecture describes the intended system, not completed functionality.

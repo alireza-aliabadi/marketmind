@@ -9,6 +9,26 @@
       "example": "examples/filing.ingested.v1.json",
       "status": "contract-only",
       "delivery": "at-least-once"
+    },
+    "market.filings.raw.v1": {
+      "schema": "market.filings.raw.v1.json", "producer": "market-data-service",
+      "consumers": ["market-data-service"], "example": "examples/market.filings.raw.v1.json",
+      "status": "implemented", "delivery": "at-least-once"
+    },
+    "market.economics.raw.v1": {
+      "schema": "market.economics.raw.v1.json", "producer": "market-data-service",
+      "consumers": ["market-data-service"], "example": "examples/market.economics.raw.v1.json",
+      "status": "implemented", "delivery": "at-least-once"
+    },
+    "market.prices.raw.v1": {
+      "schema": "market.prices.raw.v1.json", "producer": "market-data-service",
+      "consumers": ["market-data-service"], "example": "examples/market.prices.raw.v1.json",
+      "status": "implemented", "delivery": "at-least-once"
+    },
+    "market.ingestion.dlq.v1": {
+      "schema": "market.ingestion.dlq.v1.json", "producer": "market-data-service",
+      "consumers": ["market-data-service"], "example": "examples/market.ingestion.dlq.v1.json",
+      "status": "implemented", "delivery": "at-least-once"
     }
   }
 }

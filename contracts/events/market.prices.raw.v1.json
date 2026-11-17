@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:marketmind:events:market.prices.raw:1.0.0",
+  "title": "MarketPricesRawV1",
+  "description": "Exact decimal daily OHLCV with FIGI/MIC/currency, declared delay and split-only adjustment semantics.",
+  "type": "object", "additionalProperties": false,
+  "required": ["idempotency_key", "kind", "snapshot"],
+  "properties": {
+    "idempotency_key": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "kind": {"const": "prices"},
+    "snapshot": {
+      "type": "object", "additionalProperties": false,
+      "required": ["instrument", "bars"],
+      "properties": {
+        "instrument": {
+          "type": "object", "additionalProperties": false,
+          "required": ["id", "company_id", "ticker", "exchange", "currency", "name", "list_date", "as_of_date", "metadata_source"],
+          "properties": {
+            "id": {"type": "string", "pattern": "^figi:BBG[A-Z0-9]{9}$"},
+            "company_id": {"type": "string", "pattern": "^$|^cik:[0-9]{10}$"},
+            "ticker": {"type": "string", "minLength": 1, "maxLength": 32},
+            "exchange": {"type": "string", "pattern": "^[A-Z0-9]{4}$"},
+            "currency": {"type": "string", "pattern": "^[A-Z]{3}$"},
+            "name": {"type": "string"},
+            "list_date": {"anyOf": [{"const": ""}, {"type": "string", "format": "date"}]},
+            "as_of_date": {"type": "string", "format": "date"},
+            "metadata_source": {"$ref": "#/$defs/source"}
+          }
+        },
+        "bars": {
+          "type": "array",
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["time", "open", "high", "low", "close", "volume", "adjustment", "delay", "metadata_source"],
+            "properties": {
+              "time": {"type": "string", "format": "date-time", "pattern": "Z$"},
+              "open": {"$ref": "#/$defs/decimal"}, "high": {"$ref": "#/$defs/decimal"},
+              "low": {"$ref": "#/$defs/decimal"}, "close": {"$ref": "#/$defs/decimal"},
+              "volume": {"$ref": "#/$defs/decimal"},
+              "adjustment": {"enum": ["unadjusted", "split_adjusted"]},
+              "delay": {
+                "type": "object", "additionalProperties": false,
+                "required": ["mode", "seconds"],
+                "properties": {
+                  "mode": {"enum": ["end_of_day", "delayed", "realtime", "unknown"]},
+                  "seconds": {"type": ["integer", "null"], "minimum": 0}
+                },
+                "allOf": [
+                  {"if": {"properties": {"mode": {"enum": ["end_of_day", "unknown"]}}}, "then": {"properties": {"seconds": {"type": "null"}}}},
+                  {"if": {"properties": {"mode": {"const": "delayed"}}}, "then": {"properties": {"seconds": {"type": "integer", "minimum": 1}}}},
+                  {"if": {"properties": {"mode": {"const": "realtime"}}}, "then": {"properties": {"seconds": {"const": 0}}}}
+                ]
+              },
+              "metadata_source": {"$ref": "#/$defs/source"}
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "decimal": {"type": "string", "maxLength": 128, "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?$"},
+    "source": {
+      "type": "object", "additionalProperties": false,
+      "required": ["provider", "external_id", "url", "retrieved_at", "payload_sha256", "license"],
+      "properties": {
+        "provider": {"const": "massive"},
+        "external_id": {"type": "string", "minLength": 1, "maxLength": 1024},
+        "url": {"type": "string", "format": "uri", "pattern": "^https://", "maxLength": 2048},
+        "retrieved_at": {"type": "string", "format": "date-time", "pattern": "Z$"},
+        "payload_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "license": {
+          "type": "object", "additionalProperties": false,
+          "required": ["classification", "permission_reference", "retention_allowed", "ai_allowed"],
+          "properties": {
+            "classification": {"type": "string", "minLength": 1},
+            "permission_reference": {"type": "string", "minLength": 1},
+            "retention_allowed": {"const": true}, "ai_allowed": {"type": "boolean"}
+          }
+        }
+      }
+    }
+  }
+}

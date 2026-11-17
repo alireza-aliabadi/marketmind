@@ -91,11 +91,48 @@ def validate_event(event: dict[str, Any], root: Path = ROOT) -> None:
             raise ValueError("Provider publication cannot follow observation time")
         if observed > datetime.fromisoformat(event["time"]):
             raise ValueError("Observation cannot follow event publication time")
+    elif event["type"] in {
+        "market.filings.raw.v1",
+        "market.economics.raw.v1",
+        "market.prices.raw.v1",
+    }:
+        published = datetime.fromisoformat(event["time"])
+
+        def check_sources(value: Any) -> None:
+            if isinstance(value, dict):
+                source = value.get("metadata_source")
+                if source is not None:
+                    observed = datetime.fromisoformat(source["retrieved_at"])
+                    if observed > published:
+                        raise ValueError("Source observation cannot follow event publication")
+                    if (
+                        value.get("published_at") is not None
+                        and datetime.fromisoformat(value["published_at"]) > observed
+                    ):
+                        raise ValueError("Filing publication cannot follow source observation")
+                    if "time" in value and datetime.fromisoformat(value["time"]) > observed:
+                        raise ValueError("Price period cannot follow source observation")
+                    if "api_key" in source["url"].lower() or "apikey" in source["url"].lower():
+                        raise ValueError("Credential-bearing source URL is forbidden")
+                for child in value.values():
+                    check_sources(child)
+            elif isinstance(value, list):
+                for child in value:
+                    check_sources(child)
+
+        check_sources(event["data"]["snapshot"])
+    elif event["type"] == "market.ingestion.dlq.v1":
+        if datetime.fromisoformat(event["data"]["failed_at"]) > datetime.fromisoformat(
+            event["time"]
+        ):
+            raise ValueError("Failure cannot follow DLQ event publication")
 
 
-def replay_identity(event: dict[str, Any]) -> tuple[str, str, str]:
-    """Consumer deduplication identity; storage/idempotent processing is Phase 2 work."""
+def replay_identity(event: dict[str, Any]) -> tuple[str, str, str] | str:
+    """Legacy artifact identity or the implemented raw snapshot's replay key."""
     data = event["data"]
+    if event["type"].startswith("market."):
+        return data.get("idempotency_key", data.get("failure_id"))
     return data["provider"], data["source_id"], data["artifact"]["sha256"]
 
 

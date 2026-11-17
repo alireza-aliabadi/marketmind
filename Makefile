@@ -1,10 +1,10 @@
 INFRA_COMPOSE_ARGS ?=
 INFRA_COMPOSE = docker compose --file compose.yml --file compose.override.yml --profile infra $(INFRA_COMPOSE_ARGS)
-GO_MODULES = services/api-gateway services/identity-service
+GO_MODULES = services/api-gateway services/identity-service services/market-data-service
 GO_TEST_FLAGS ?=
 GATEWAY_TEST_TMPDIR ?= /tmp/opencode
 
-.PHONY: help infra-config infra-up infra-down infra-check infra-test infra-tools infra-logs contracts-check architecture-check ownership-test ownership-init api run gateway gateway-test pre-commit-check test test-python test-go build-go lint lint-python lint-go frontend-lint frontend-check format format-go check
+.PHONY: help infra-config infra-up infra-down infra-check infra-test infra-tools infra-logs contracts-check architecture-check ownership-test ownership-init api run gateway gateway-test market-data-test market-production-test market-container-test market-migrate market-runtime-init graph-schema-test graph-migrate pre-commit-check test test-python test-go build-go lint lint-python lint-go frontend-lint frontend-check format format-go check
 
 help:
 	@echo "Available commands:"
@@ -23,6 +23,12 @@ help:
 	@echo "  make run         - Alias for make api"
 	@echo "  make gateway     - Run the OIDC-protected Go gateway (requires issuer/audience configuration)"
 	@echo "  make gateway-test - Test the real Go gateway -> FastAPI flow with a disposable OIDC issuer"
+	@echo "  make market-data-test - Verify M2.3/M2.4 with isolated Kafka/PostgreSQL Testcontainers"
+	@echo "  make market-migrate - Explicitly apply owned market migrations with operator credentials"
+	@echo "  make market-runtime-init - Explicitly provision the non-owner DML runtime group"
+	@echo "  make market-production-test - Verify future-production TLS/auth and recovery controls locally"
+	@echo "  make graph-schema-test - Verify M3.1 in isolated Neo4j Testcontainers"
+	@echo "  make graph-migrate - Explicitly apply the additive graph schema with operator credentials"
 	@echo "  make pre-commit-check - Run configured hooks on tracked files"
 	@echo "  make test        - Run Python and Go test suites"
 	@echo "  make lint        - Run Python, Go, and frontend lint/format/type checks"
@@ -77,6 +83,31 @@ gateway-test:
 	@mkdir -p "$(GATEWAY_TEST_TMPDIR)"
 	cd services/api-gateway && TMPDIR="$(GATEWAY_TEST_TMPDIR)" RUN_GATEWAY_INTEGRATION_TESTS=1 go test -count=1 -v ./cmd/server -run TestGatewayEndToEnd
 
+market-data-test:
+	@mkdir -p /tmp/opencode
+	RUN_MARKET_RUNTIME_TESTS=1 uv run pytest -s tests/test_ingestion_runtime.py
+
+market-migrate:
+	cd services/market-data-service && go run ./cmd/market-data migrate
+
+market-runtime-init:
+	cd services/market-data-service && go run ./cmd/market-data runtime-init
+
+market-production-test: market-data-test
+	RUN_MARKET_SECURE_TESTS=1 uv run pytest -s tests/test_phase2_secure_transport.py
+	$(MAKE) market-container-test
+
+market-container-test:
+	@mkdir -p /tmp/opencode
+	RUN_MARKET_CONTAINER_TESTS=1 uv run pytest -s tests/test_phase2_container.py
+
+graph-schema-test:
+	@mkdir -p /tmp/opencode
+	RUN_GRAPH_SCHEMA_TESTS=1 uv run pytest -s tests/test_graph_schema.py
+
+graph-migrate:
+	PYTHONPATH=services/knowledge-graph-service uv run python -m knowledge_graph_service.presentation.migrate
+
 pre-commit-check:
 	uv tool run pre-commit run --config .pre-commit-config.yml --all-files
 
@@ -94,7 +125,7 @@ test: test-python test-go
 lint-python:
 	uv run ruff check .
 	uv run ruff format --check .
-	uv run mypy src
+	MYPYPATH=services/knowledge-graph-service uv run mypy src services/knowledge-graph-service/knowledge_graph_service
 
 lint-go:
 	@unformatted=$$(gofmt -l $(GO_MODULES)); if [ -n "$$unformatted" ]; then printf 'Run make format-go on:\n%s\n' "$$unformatted"; exit 1; fi

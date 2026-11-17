@@ -1,0 +1,82 @@
+# Reviewed starting manifest for managed dependencies. No secrets/real endpoints.
+# Keep replicas at zero until release gates/grants/ACLs/managed endpoints are verified.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: market-data-relay
+  labels: {app: market-data, role: relay}
+spec:
+  replicas: 0
+  selector:
+    matchLabels: {app: market-data, role: relay}
+  template:
+    metadata:
+      labels: {app: market-data, role: relay}
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 45
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: relay
+          # Replace with the immutable digest produced by your release build.
+          image: marketmind/market-data:replace-with-reviewed-release
+          args: [worker, --role, relay, --timeout, 30s]
+          env:
+            - {name: MARKET_ENV, value: production}
+            - {name: MARKET_OPERATIONAL_ADDRESS, value: '0.0.0.0:8082'}
+            - {name: MARKET_DATABASE_URL_FILE, value: /secrets/database-url}
+            - {name: KAFKA_SASL_PASSWORD_FILE, value: /secrets/kafka-password}
+            - {name: KAFKA_SASL_USERNAME, value: replace-with-runtime-principal}
+            - {name: KAFKA_SASL_MECHANISM, value: scram-sha-512}
+            - {name: KAFKA_BOOTSTRAP_SERVERS, value: 'replace-with-managed-broker:9093'}
+            - {name: MARKET_PROVIDER_GRANTS_FILE, value: /grants/providers.json}
+          ports: [{name: operations, containerPort: 8082}]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          resources:
+            requests: {cpu: 100m, memory: 128Mi}
+            limits: {cpu: '1', memory: 512Mi}
+          startupProbe:
+            httpGet: {path: /health/live, port: operations}
+            failureThreshold: 30
+            periodSeconds: 2
+          livenessProbe:
+            httpGet: {path: /health/live, port: operations}
+            periodSeconds: 10
+          readinessProbe:
+            httpGet: {path: /health/ready, port: operations}
+            periodSeconds: 5
+            timeoutSeconds: 2
+          volumeMounts:
+            - {name: secrets, mountPath: /secrets, readOnly: true}
+            - {name: grants, mountPath: /grants, readOnly: true}
+      volumes:
+        - name: secrets
+          secret:
+            secretName: market-data-runtime
+            defaultMode: 0440
+        - name: grants
+          configMap: {name: market-data-reviewed-grants}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: market-data-private-operations
+spec:
+  podSelector:
+    matchLabels: {app: market-data}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: {marketmind-monitoring: 'true'}
+      ports: [{protocol: TCP, port: 8082}]
+# Add a reviewed egress policy using the actual managed-endpoint network ranges.
+# Do not invent IP allowlists or apply this manifest to a real cluster automatically.

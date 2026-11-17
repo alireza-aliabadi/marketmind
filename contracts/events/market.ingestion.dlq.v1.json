@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:marketmind:events:market.ingestion.dlq:1.0.0",
+  "title": "IngestionDeadLetterV1",
+  "description": "Original message bytes are base64 encoded, never truncated or interpreted as instructions. Replay is explicit and audited.",
+  "type": "object", "additionalProperties": false,
+  "required": ["failure_id", "original_topic", "original_key", "original_base64", "code", "attempts", "failed_at"],
+  "properties": {
+    "failure_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "original_topic": {"enum": ["market.filings.raw.v1", "market.economics.raw.v1", "market.prices.raw.v1"]},
+    "original_key": {"type": "string"},
+    "original_base64": {"type": "string", "contentEncoding": "base64"},
+    "code": {"enum": ["invalid_event", "processing_failed", "delivery_exhausted"]},
+    "attempts": {"type": "integer", "minimum": 1, "maximum": 10},
+    "failed_at": {"type": "string", "format": "date-time", "pattern": "Z$"}
+  }
+}

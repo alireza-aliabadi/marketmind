@@ -72,7 +72,7 @@ jobs:
         run: uv run ruff format --check .
 
       - name: Type check with Mypy
-        run: uv run mypy src
+        run: MYPYPATH=services/knowledge-graph-service uv run mypy src services/knowledge-graph-service/knowledge_graph_service
 
       - name: Run Pytest
         run: uv run pytest
@@ -88,12 +88,14 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.26.5'
+          go-version: '1.26.11'
           cache: true
           cache-dependency-path: |
             services/api-gateway/go.mod
             services/api-gateway/go.sum
             services/identity-service/go.mod
+            services/market-data-service/go.mod
+            services/market-data-service/go.sum
 
       - name: Check Go formatting and vet
         run: make lint-go
@@ -115,7 +117,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.26.5'
+          go-version: '1.26.11'
           cache-dependency-path: services/api-gateway/go.sum
 
       - uses: astral-sh/setup-uv@v5
@@ -130,6 +132,33 @@ jobs:
 
       - name: Verify real routing, OIDC, tenant authorization and failures
         run: make gateway-test
+
+  ingestion-and-graph-integration:
+    name: Market Ingestion & Graph Schema
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GOFLAGS: -mod=readonly
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.11'
+          cache-dependency-path: services/market-data-service/go.sum
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Set up Python
+        run: uv python install 3.14.8
+      - name: Install frozen dependencies
+        run: uv sync --extra dev --frozen
+      - name: Verify Phase 2 transport, privileges, worker and restore controls
+        run: make market-production-test
+      - name: Check reachable Go vulnerabilities in ingestion
+        working-directory: services/market-data-service
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
+      - name: Verify M3.1 with isolated Neo4j
+        run: make graph-schema-test
 
   frontend-checks:
     name: React Scaffold Lint & Build

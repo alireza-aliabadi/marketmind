@@ -144,8 +144,31 @@ credential. These owner roles do not implement application tenant/RBAC security.
 
 See [contract conventions](contracts/README.md),
 [ownership manifest](contracts/service-ownership.json), and ADR-0005/ADR-0006 for
-current behavior and remaining limitations. The filing event fixture is synthetic
-and contract-only; actual ingestion and AI research workflows are later work.
+current behavior and remaining limitations. The artifact filing event stays
+synthetic/contract-only; M2 raw metadata/time-series events are implemented,
+while document acquisition and AI research remain later work.
+
+### M2 Ingestion and M3.1 Schema Boundary
+
+`make market-data-test` uses the compiled CLI and actual Kafka/PostgreSQL/TimescaleDB
+through private Testcontainers with synthetic HTTP providers. `make graph-schema-test`
+checks actual Neo4j Community constraints/indexes, replay and conflict failure.
+Both remove only owned resources, need no live key/AIStor license, and leave
+development settings/data untouched. Default pytest skips these Docker scenarios.
+
+Existing databases are never automatically migrated. Explicitly review/export
+`MARKET_MIGRATION_DATABASE_URL` for `make market-migrate` and
+`GRAPH_SCHEMA_URI/USERNAME/PASSWORD` for `make graph-migrate`. Market runtime
+requires a separately provisioned non-elevated own-role account and rejects the
+administrator. Schema-operator credentials must never become AI tool credentials.
+
+FRED terms prohibit retention/AI development absent permission; Massive live/
+redistribution/AI rights need review. Synthetic acceptance grants no live rights.
+SEC metadata hashes are not filing-document hashes. See ADR-0008/ADR-0009,
+[schema v1](docs/data-model/graph-schema.md), [evidence](docs/reports/through-m3.1-verification.md)
+and the [code-free AI handoff](docs/requirements/ai-manual-handoff.md). M3.2+ remains
+unimplemented; graph writer/time/tenant rules are specifications, not Community
+enforcement.
 
 ### M1.2 Gateway and Identity Foundation
 
@@ -173,7 +196,7 @@ current trust boundary and revocation limits.
 
 The React scaffold has pinned dependencies, Oxlint (compatible with native
 TypeScript 7), Prettier and a TypeScript/Vite build. `make frontend-check` exercises
-all these gates; frontend product pages remain later work. Both Go modules are
+all these gates; frontend product pages remain later work. All three Go modules are
 included in build/test/format/vet checks and CI.
 
 After installing the prerequisites/dependencies above, run `make pre-commit-check`.
@@ -206,6 +229,9 @@ All common tasks are coordinated through the `Makefile`:
 - `make api` / `make run`: Launches the FastAPI server with hot-reloading at `http://localhost:8000`.
 - `make gateway`: Runs the OIDC gateway with exported issuer/audience settings, defaulting to `127.0.0.1:8080`.
 - `make gateway-test`: Tests the real Go → Python runtime flow and OIDC/tenant/RBAC failure paths.
+- `make market-data-test`: Verifies real M2.3/M2.4 ingestion/failure/replay in private stores.
+- `make graph-schema-test`: Verifies M3.1 on private Neo4j Community.
+- `make market-migrate` / `make graph-migrate`: Explicit reviewed operator migrations only.
 - `make frontend-check`: Lints, format-checks, type-checks and builds the React scaffold.
 - `make pre-commit-check`: Runs all configured hooks on tracked files with the explicit `.yml` configuration.
 - `make test`: Runs Python (`pytest`) and Go test suites.

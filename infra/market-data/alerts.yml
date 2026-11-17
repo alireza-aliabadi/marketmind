@@ -1,0 +1,21 @@
+groups:
+  - name: market-data-ingestion
+    rules:
+      - alert: MarketIngestionNotReady
+        expr: market_ingestion_ready == 0
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: Market-data dependency or durability checks are failing
+      - alert: MarketOutboxBacklogOld
+        expr: market_outbox_oldest_seconds > 300
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: Ingestion delivery backlog exceeds five minutes
+      - alert: MarketMessagesParked
+        expr: market_outbox_parked > 0
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: Inspect durable parked messages before explicit replay

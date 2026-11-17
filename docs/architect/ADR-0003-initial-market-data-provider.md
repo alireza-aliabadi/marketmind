@@ -1,5 +1,9 @@
 # ADR-0003: Initial market data providers and licensing
 
+> **2026-11-17 clarification:** Licensing, branding/plan and Yahoo-fallback
+> assumptions below are superseded by [ADR-0008](ADR-0008-provider-permissions-and-price-semantics.md).
+> This original decision is retained as history, not a live rights/entitlement grant.
+
 - **Status:** Accepted
 - **Date:** 2026-11-07
 - **Deciders:** MarketMind Architecture Team

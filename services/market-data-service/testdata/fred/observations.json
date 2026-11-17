@@ -1,0 +1,9 @@
+{
+  "count": 3,
+  "offset": 0,
+  "observations": [
+    {"date": "2024-01-01", "value": "100.123456789012345678", "realtime_start": "2024-03-01", "realtime_end": "2024-03-01"},
+    {"date": "2024-02-01", "value": ".", "realtime_start": "2024-03-01", "realtime_end": "2024-03-01"},
+    {"date": "2024-03-01", "value": "-1.25", "realtime_start": "2024-03-01", "realtime_end": "2024-03-01"}
+  ]
+}

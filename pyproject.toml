@@ -8,6 +8,7 @@ dependencies = [
   "uvicorn[standard]",
   "pydantic-settings",
   "structlog",
+  "neo4j>=6.4.1",
 ]
 
 [project.optional-dependencies]
@@ -18,6 +19,7 @@ dev = [
   "mypy",
   "jsonschema[format-nongpl]",
   "openapi-spec-validator",
+  "testcontainers>=4.15.0",
 ]
 
 [tool.poetry]
@@ -33,7 +35,7 @@ ignore = ["B008"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["."]
+pythonpath = [".", "services/knowledge-graph-service"]
 addopts = "-q"
 
 [tool.mypy]

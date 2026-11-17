@@ -1,0 +1,8 @@
+{
+  "accessionNumber": ["0001045810-24-000001", "0001045810-23-000001"],
+  "form": ["10-K", "10-K"],
+  "filingDate": ["2024-02-21", "2023-02-21"],
+  "reportDate": ["2024-01-28", "2023-01-29"],
+  "acceptanceDateTime": ["2024-02-21T21:06:00Z", ""],
+  "primaryDocument": ["synthetic-10k.htm", "synthetic-2023.htm"]
+}

@@ -8,9 +8,9 @@
 - **Objective:** Advanced AI Engineer portfolio project
 - **Architecture:** Domain-Driven Microservices + Clean Architecture + Event-Driven Architecture
 - **Target plan:** 12 weeks
-- **Current phase:** Phase 1: Architecture and platform foundation
-- **Overall status:** M1.1–M1.4 implemented and locally verified; remote CI exit criterion remains pending
-- **Last updated:** 2026-11-14
+- **Current phase:** Phase 2 production hardening locally verified; M3.2 remains unimplemented
+- **Overall status:** M2 production controls and M3.1 schema verified locally; live release blocked on provider/deployment/operational evidence
+- **Last updated:** 2026-11-17
 
 ### Status legend
 
@@ -32,7 +32,7 @@ Do not mark a task `[x]` until its acceptance criteria have been tested. Add a P
 - [x] **ADR-005:** Use PostgreSQL for transactional records, TimescaleDB for time-series, Neo4j for graph facts, Redis for ephemeral coordination, and S3-compatible object storage for permitted raw artifacts. M1.3 and ADR-0006.
 - [ ] **ADR-006:** Use LangChain for model/tool integrations and LangGraph for stateful research workflows.
 - [ ] **ADR-007:** Use Langfuse for LLM observability and LangSmith for workflow debugging/evaluation, with OpenTelemetry for cross-service telemetry.
-- [ ] **ADR-008:** Represent sourced/inferred relationships as temporal claims with provenance.
+- [x] **ADR-008:** Represent sourced/inferred relationships as temporal claims with provenance. Schema specification/ADR-0010 only; M3.2 ingestion remains unimplemented.
 - [ ] **ADR-009:** Keep deterministic financial calculations outside LLM reasoning.
 - [ ] **ADR-010:** No autonomous trade execution; reports are research and decision support.
 
@@ -121,49 +121,68 @@ exit criterion. This is not a claim of identity CRUD, ingestion or production IA
 
 ## Phase 2 — Market data and ingestion (Weeks 3–4)
 
+**Future production profile:** secure transport, non-owner DML role, shared
+throttling/journal, supervised workers, retry integrity, retention redaction and
+actual TLS/restore/image checks are implemented for private managed ingestion.
+[Verification](docs/reports/phase-2-production-hardening.md) records passed local
+checks. The user has no live access yet; providers remain disabled. **Live release
+is blocked** on rights/accounts, actual managed deployment/ACL/failover, retention/
+revocation, off-cluster RPO/RTO, capacity/monitoring and remote acceptance. See the
+[runbook](docs/runbooks/phase-2-production.md). M3.2/AI remain unimplemented.
+
 ### M2.1 — Provider abstraction and SEC integration
 
-- [ ] Define provider port/interface.
-- [ ] Implement Go provider adapter structure.
-- [ ] Integrate SEC EDGAR submissions.
-- [ ] Retrieve company identifiers and filing metadata.
-- [ ] Preserve provider IDs, source URLs, and timestamps.
-- [ ] Respect SEC access requirements and User-Agent policy.
+Evidence: [Through-M3.1 verification report](docs/reports/through-m3.1-verification.md).
+
+- [x] Define provider port/interface.
+- [x] Implement Go provider adapter structure. Continued the existing user implementation in place.
+- [x] Integrate SEC EDGAR submissions. Actual adapter HTTP flow verified against synthetic loopback responses.
+- [x] Retrieve company identifiers and filing metadata. Bounded optional history; no filing-document download claimed.
+- [x] Preserve provider IDs, source URLs, and timestamps.
+- [x] Respect SEC access requirements and User-Agent policy. Process-wide conservative pacing, contact header, bounded requests/retries.
 
 ### M2.2 — Economic and market data
 
-- [ ] Integrate FRED API.
-- [ ] Select and integrate a market-price provider.
-- [ ] Document data coverage and licensing.
-- [ ] Normalize currency, exchange, instrument, and timestamps.
-- [ ] Model delayed vs real-time data explicitly.
-- [ ] Model corporate-action and adjusted-price semantics.
+Evidence: [Through-M3.1 verification report](docs/reports/through-m3.1-verification.md)
+and [ADR-0008](docs/architect/ADR-0008-provider-permissions-and-price-semantics.md).
+
+- [x] Integrate FRED API. Synthetic HTTP acceptance; live use fails closed without reviewed written permission and a series allowlist.
+- [x] Select and integrate a market-price provider. Massive (formerly Polygon), Stocks Developer semantics; no account/plan purchase claimed.
+- [x] Document data coverage and licensing. Current terms supersede the blanket public-domain assumptions in ADR-0003.
+- [x] Normalize currency, exchange, instrument, and timestamps.
+- [x] Model delayed vs real-time data explicitly.
+- [x] Model corporate-action and adjusted-price semantics. Split-adjusted excludes dividends; corporate-action records are modeled, not downloaded or applied.
 
 ### M2.3 — Kafka ingestion
 
-- [ ] Create versioned raw topics.
-- [ ] Implement ingestion event envelope.
-- [ ] Add idempotency keys.
-- [ ] Add retries with bounded backoff.
-- [ ] Add dead-letter topic and replay procedure.
-- [ ] Implement outbox pattern where database publication requires atomicity.
-- [ ] Test duplicate and out-of-order events.
+Evidence: [Through-M3.1 verification report](docs/reports/through-m3.1-verification.md)
+and [ADR-0009](docs/architect/ADR-0009-durable-snapshot-ingestion.md).
+
+- [x] Create versioned raw topics. Explicit provisioning; three minimally normalized snapshot topics plus DLQ, verified on private Kafka.
+- [x] Implement ingestion event envelope. Existing immutable CloudEvents envelope reused; new closed payload contracts.
+- [x] Add idempotency keys. Native identity/content/normalized payload, excluding retrieval-only changes.
+- [x] Add retries with bounded backoff.
+- [x] Add dead-letter topic and replay procedure. Original bytes, stage-specific failures, explicit validated/audited replay.
+- [x] Implement outbox pattern where database publication requires atomicity. Locked pending relay and transactional receipt/outbox; at-least-once, not distributed exactly-once.
+- [x] Test duplicate and out-of-order events. Actual Kafka replay and newer-before-older PostgreSQL fixtures.
 
 ### M2.4 — Persistence and data quality
 
-- [ ] Add PostgreSQL migrations.
-- [ ] Add TimescaleDB hypertable and indexes.
-- [ ] Add data source registry.
-- [ ] Add validation and freshness metadata.
-- [ ] Add ingestion status and error records.
-- [ ] Add integration tests with Testcontainers.
+Evidence: [Through-M3.1 verification report](docs/reports/through-m3.1-verification.md).
+
+- [x] Add PostgreSQL migrations. Explicit, additive, owner-scoped and checksum-verified; no development-volume migration performed.
+- [x] Add TimescaleDB hypertable and indexes.
+- [x] Add data source registry. Provider/native IDs, URLs/hashes, rights and source versions.
+- [x] Add validation and freshness metadata. Exact NUMERIC, null missing values, observation/check times and quality records.
+- [x] Add ingestion status and error records. Queued/applied/parked delivery/processing records; pre-enqueue provider errors remain CLI failures.
+- [x] Add integration tests with Testcontainers. Actual compiled CLI, PostgreSQL/TimescaleDB and Kafka, with isolated synthetic data.
 
 **Phase 2 exit criteria**
-- [ ] At least one company/filing pipeline runs end to end.
-- [ ] At least one economic or market time-series pipeline runs end to end.
-- [ ] Duplicate replay is idempotent.
-- [ ] Source provenance and freshness are queryable.
-- [ ] Provider licensing assumptions are documented.
+- [x] At least one company/filing pipeline runs end to end. SEC submissions/filing metadata through real runtime components, synthetic HTTP source; not document acquisition.
+- [x] At least one economic or market time-series pipeline runs end to end. Synthetic FRED observations and Massive split-adjusted/unadjusted bars.
+- [x] Duplicate replay is idempotent.
+- [x] Source provenance and freshness are queryable.
+- [x] Provider licensing assumptions are documented. Live FRED/Massive grants/accounts/coverage remain unverified and permission-gated.
 
 ---
 
@@ -171,11 +190,18 @@ exit criterion. This is not a claim of identity CRUD, ingestion or production IA
 
 ### M3.1 — Graph schema
 
-- [ ] Define canonical Company and Instrument identities.
-- [ ] Define MarketEvent, Sector, Industry, Product, Source, and Claim nodes.
-- [ ] Define typed relationships and direction semantics.
-- [ ] Add Neo4j uniqueness constraints and indexes.
-- [ ] Document graph schema and migration/versioning strategy.
+Evidence: [Through-M3.1 verification report](docs/reports/through-m3.1-verification.md),
+[schema v1](docs/data-model/graph-schema.md), and [ADR-0010](docs/architect/ADR-0010-graph-schema-and-scope.md).
+
+- [x] Define canonical Company and Instrument identities. Padded CIK/share-class FIGI; no name/ticker resolution workflow.
+- [x] Define MarketEvent, Sector, Industry, Product, Source, and Claim nodes. Schema specification only, not a claim domain model/ingester.
+- [x] Define typed relationships and direction semantics.
+- [x] Add Neo4j uniqueness constraints and indexes. Eleven actual uniqueness constraints/nine explicit range indexes; Community does not enforce presence, time or tenant visibility.
+- [x] Document graph schema and migration/versioning strategy. Additive, checksummed, resumable; conflicting names/rewritten versions fail without overwrite.
+
+**Requested stop:** M3.2 and all later AI/retrieval work remain unchecked and
+unimplemented. See [manual AI requirements and acceptance criteria](docs/requirements/ai-manual-handoff.md)
+for a code-free handoff. Schema migrations seed no business graph knowledge.
 
 ### M3.2 — Claim and relationship ingestion
 
@@ -383,9 +409,10 @@ Targets are engineering goals, not achieved metrics. Record actual results, data
 ## Current blockers / decisions
 
 - [!] Observe a successful remote Phase 1 CI run against these changes. No commit/push was requested or performed.
-- [x] Choose initial licensed market-data provider and plan (Resolved in ADR-0003: SEC EDGAR + FRED + Polygon/yfinance adapter).
+- [x] Choose initial provider adapters/price-plan semantics (SEC EDGAR, FRED, Massive/Polygon; ADR-0008 supersedes ADR-0003 blanket licensing assumptions; no Yahoo fallback or purchased entitlement).
+- [!] Verify live source permissions/accounts/coverage. FRED retention/AI development requires written permission; Massive public/multi-tenant/AI use requires separate contract review. Synthetic acceptance is not a live-data grant.
 - [ ] Choose initial LLM provider/model and embedding model.
-- [ ] Decide whether graph data is global, tenant-specific, or a combination.
+- [x] Decide whether graph data is global, tenant-specific, or a combination. ADR-0010: public canonical catalog plus scoped private evidence/claims; later authorization remains unimplemented.
 - [ ] Decide initial news provider and permitted content retention.
 - [ ] Confirm deployment target and budget.
 - [ ] Define benchmark universe and manually reviewed ground truth.
@@ -395,6 +422,39 @@ Targets are engineering goals, not achieved metrics. Record actual results, data
 ## Engineering log
 
 Append entries newest-first.
+
+### 2026-11-17 — Continued user implementation through M3.1; explicit AI stop
+
+- Backed up and completed the user's untracked market-data Go module/models/port/
+  unfinished SEC adapter in place. Preserved original names/fields/structure and
+  all unrelated work, credentials, licenses and development data.
+- Verified M2.1 and M2.2 separately with race-enabled real adapter HTTP fixtures:
+  SEC history/access/provenance, FRED pagination/vintages/missing values, Massive
+  identities/delay/split semantics and exact decimals. Reviewed current provider
+  terms; added permission gates and corrected blanket public-domain assumptions.
+- Verified M2.3/M2.4 with actual compiled CLI, Kafka, PostgreSQL/TimescaleDB through
+  private Testcontainers. Proved transactional outbox/application rollback, bounded
+  transport/processing failure, original-byte DLQs, explicit audited replay,
+  duplicates, out-of-order correction protection, freshness and runtime isolation.
+- Diagnosed test-only tmpfs option/capacity errors and a failed-publication test
+  that mistook a pending DLQ for raw data. Corrected recovery expectations and kept
+  transport/processing failure histories distinct; subsequent runtime tests passed.
+- Verified M3.1 on actual Neo4j Community: canonical/scoped IDs, eleven uniqueness
+  constraints, online indexes, additive replay, preservation of unrelated probe
+  data, checksum immutability and reserved-name conflict failure. No graph ingest,
+  claim domain model, entity resolution, temporal retrieval or AI was implemented.
+- `make check` passed Ruff, strict mypy (21 sources), architecture/contracts,
+  136 Python tests (56 opt-in store checks skipped), all three Go modules and
+  frontend build. `make market-data-test` passed both race-enabled milestones;
+  `make graph-schema-test` passed five checks; `make gateway-test ownership-test`
+  passed real OIDC proxy regressions and all 51 SQL ownership checks.
+- Recorded [evidence](docs/reports/through-m3.1-verification.md) and a
+  [requirements/acceptance-only manual AI handoff](docs/requirements/ai-manual-handoff.md).
+  M3.2+ stays unchecked. No live provider acceptance, commit, push or remote CI.
+- Final all-module race repeats, frozen Python sync, Go checksum verification,
+  base-HEAD contract immutability, changed/new-file pre-commit hooks and whitespace
+  checks passed. Private test-container cleanup was observed. CI includes the new
+  integration commands, but remote execution remains unobserved.
 
 ### 2026-11-14 - Phase 1 gap closure and acceptance verification
 
