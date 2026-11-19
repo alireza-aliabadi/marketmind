@@ -37,7 +37,7 @@ Infrastructure Layer (PostgreSQL, Kafka, Neo4j, Redis, MinIO, External APIs)
 - Docker Engine and Docker Compose 2.24.4+ (`--wait` support)
 - Go 1.25+ for Go modules (pinned/tested toolchain: 1.26.5)
 - Node.js 22.12.0+ and pnpm 12.18.0 for the frontend scaffold
-- GNU Make
+- GNU Make (optional aliases/check aggregation; not required to run applications)
 - A valid local AIStor `minio.license` file beside `compose.yml`
 
 ### Quickstart
@@ -55,12 +55,25 @@ uv sync --extra dev --frozen
 pnpm --dir frontend/web install --frozen-lockfile
 
 # 4. Start local infrastructure services (PostgreSQL, Kafka, Neo4j, Redis, MinIO)
-make infra-up
+docker compose --profile infra up --detach --wait --wait-timeout 240
 
 # 5. Run tests and verify setup
 make check
 make gateway-test
 ```
+
+Applications have native entry points; no Bash launcher or `PYTHONPATH` is required:
+
+```text
+uv run marketmind-api --reload
+go -C services/api-gateway run ./cmd/server
+uv run graph-setup
+go -C services/market-data-service run ./cmd/market-data setup
+```
+
+The last two commands require explicit operator settings; the gateway requires
+its OIDC settings. Make commands below are optional aliases, not application setup
+requirements. Runtime users/passwords remain managed separately with least privilege.
 
 ### Local Infrastructure
 
@@ -93,12 +106,13 @@ Neo4j Browser is available at `http://localhost:7474` and the AIStor console at
 `http://localhost:8081`, leaving port 8080 available for the API gateway.
 
 `make infra-up` validates configuration, starts the `infra` profile, waits for all
-five services to become healthy, and verifies authenticated database and
-object-storage access. `make infra-check` rechecks readiness without restarting
-services.
+five services to become healthy using Compose's existing checks, without a second
+startup wrapper. Optional `make infra-check` (`uv run python -m infra check`)
+rechecks readiness and authenticated database/object-storage access without
+restarting services. Infrastructure verification is native Python, not Bash.
 
-`make infra-test` uses a unique `marketmind-m13-test-*` project, example settings,
-test-only credentials, and no published ports. It writes synthetic fixtures to
+`make infra-test` (`uv run python -m infra test`) uses a unique `marketmind-m13-test-*`
+project, example settings, test-only credentials, and no published ports. It writes synthetic fixtures to
 all five stores (including a TimescaleDB hypertable), recreates containers without
 deleting their volumes, and verifies the data survived. It removes only its own
 test containers, network, and volumes on exit, including failed runs. It does not
@@ -136,8 +150,10 @@ pytest runs so the default suite remains usable without a database daemon.
 
 Fresh PostgreSQL volumes run `020-service-ownership.sql` to reserve empty schemas
 with NOLOGIN owner roles. Existing development volumes are deliberately unchanged;
-review the bootstrap and run `make ownership-init` only when intentionally
-applying it to that database. Conflicting preexisting owners/elevated roles fail
+review the bootstrap and run optional `make ownership-init` only when intentionally
+reserving all planned service namespaces in that database. The market-data binary
+creates its own namespace through native `setup` and does not need this external
+bootstrap. Conflicting preexisting owners/elevated roles fail
 rather than being silently changed. Runtime LOGIN accounts and per-service secrets
 must be provisioned separately; the local administrator is not a business-service
 credential. These owner roles do not implement application tenant/RBAC security.
@@ -157,8 +173,11 @@ Both remove only owned resources, need no live key/AIStor license, and leave
 development settings/data untouched. Default pytest skips these Docker scenarios.
 
 Existing databases are never automatically migrated. Explicitly review/export
-`MARKET_MIGRATION_DATABASE_URL` for `make market-migrate` and
-`GRAPH_SCHEMA_URI/USERNAME/PASSWORD` for `make graph-migrate`. Market runtime
+`MARKET_MIGRATION_DATABASE_URL` for native `market-data setup` and
+`GRAPH_SCHEMA_URI/USERNAME/PASSWORD` for `uv run graph-setup`. The Go setup creates
+its owned schema/roles and enables installed TimescaleDB before embedded migrations;
+Python setup installs missing constraints/indexes without a migration ledger.
+Both reject conflicts without overwrite. Market runtime
 requires a separately provisioned non-elevated own-role account and rejects the
 administrator. Schema-operator credentials must never become AI tool credentials.
 
@@ -213,10 +232,10 @@ contracts/architecture. No hook installation is required to run the test suites.
 
 ## 3. Developer Commands
 
-All common tasks are coordinated through the `Makefile`:
+The `Makefile` provides optional aliases/aggregation for native commands:
 
 - `make infra-config`: Validates Compose and local license-file presence without printing credentials.
-- `make infra-up`: Starts Docker infrastructure, waits for health checks, and verifies access.
+- `make infra-up`: Starts Docker infrastructure and waits for built-in health checks.
 - `make infra-check`: Rechecks infrastructure readiness without starting or stopping containers.
 - `make infra-test`: Verifies clean startup and persistence in an isolated Docker project.
 - `make infra-tools`: Starts optional Kafka UI at `http://localhost:8081`.
@@ -231,7 +250,8 @@ All common tasks are coordinated through the `Makefile`:
 - `make gateway-test`: Tests the real Go → Python runtime flow and OIDC/tenant/RBAC failure paths.
 - `make market-data-test`: Verifies real M2.3/M2.4 ingestion/failure/replay in private stores.
 - `make graph-schema-test`: Verifies M3.1 on private Neo4j Community.
-- `make market-migrate` / `make graph-migrate`: Explicit reviewed operator migrations only.
+- `make market-setup` / `make graph-setup`: Native, explicit operator setup; no Bash bootstrap.
+- `make market-migrate` / `make market-runtime-init`: Optional lower-level Go operator commands.
 - `make frontend-check`: Lints, format-checks, type-checks and builds the React scaffold.
 - `make pre-commit-check`: Runs all configured hooks on tracked files with the explicit `.yml` configuration.
 - `make test`: Runs Python (`pytest`) and Go test suites.

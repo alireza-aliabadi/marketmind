@@ -1,13 +1,10 @@
-"""Explicit additive schema operations; no entity, claim or relationship ingestion."""
+"""Idempotent constraints and indexes; no business-node or relationship ingestion."""
 
-from dataclasses import asdict, dataclass
-from hashlib import sha256
-from pathlib import Path
+from typing import LiteralString
 
 from neo4j import Driver, Session
 
-CONSTRAINTS: dict[str, tuple[str, tuple[str, ...]]] = {
-    "mm_graph_migration_version": ("GraphSchemaMigration", ("version",)),
+CONSTRAINTS: dict[LiteralString, tuple[LiteralString, tuple[LiteralString, ...]]] = {
     "mm_company_key": ("Company", ("key",)),
     "mm_company_canonical_id": ("Company", ("canonical_id",)),
     "mm_instrument_key": ("Instrument", ("key",)),
@@ -19,7 +16,7 @@ CONSTRAINTS: dict[str, tuple[str, tuple[str, ...]]] = {
     "mm_source_key": ("Source", ("key",)),
     "mm_claim_key": ("Claim", ("key",)),
 }
-INDEXES: dict[str, tuple[str, tuple[str, ...]]] = {
+INDEXES: dict[LiteralString, tuple[LiteralString, tuple[LiteralString, ...]]] = {
     "mm_company_name": ("Company", ("name",)),
     "mm_instrument_symbol": ("Instrument", ("ticker", "exchange")),
     "mm_source_provider_id": ("Source", ("provider", "external_id")),
@@ -33,11 +30,12 @@ INDEXES: dict[str, tuple[str, tuple[str, ...]]] = {
 
 
 def _verify_definitions(session: Session, require_all: bool) -> None:
-    for command, expected in [("CONSTRAINTS", CONSTRAINTS), ("INDEXES", INDEXES)]:
+    for command, expected in (("CONSTRAINTS", CONSTRAINTS), ("INDEXES", INDEXES)):
+        prefix: LiteralString = "SHOW CONSTRAINTS" if command == "CONSTRAINTS" else "SHOW INDEXES"
         rows = {
             str(row["name"]): row
             for row in session.run(
-                f"SHOW {command} YIELD name,type,entityType,labelsOrTypes,properties "
+                f"{prefix} YIELD name,type,entityType,labelsOrTypes,properties "
                 "RETURN name,type,entityType,labelsOrTypes,properties"
             )
         }
@@ -61,82 +59,31 @@ def _verify_definitions(session: Session, require_all: bool) -> None:
                 raise ValueError(f"existing graph schema item {name} conflicts; migrate explicitly")
 
 
-@dataclass(frozen=True)
-class MigrationResult:
-    version: int
-    checksum: str
-    newly_recorded: bool
-    constraints_added: int
-    indexes_added: int
+def ensure_schema(driver: Driver, database: str = "neo4j") -> dict[str, int]:
+    """Install missing schema items without overwriting conflicts or touching data.
 
-    def summary(self) -> dict[str, object]:
-        return asdict(self)
-
-
-class GraphSchemaMigrator:
-    def __init__(
-        self, driver: Driver, database: str = "neo4j", directory: Path | None = None
-    ) -> None:
-        self._driver = driver
-        self._database = database
-        self._directory = directory or Path(__file__).parent / "migrations"
-
-    def apply(self) -> list[MigrationResult]:
-        self._driver.verify_connectivity()
-        paths = sorted(self._directory.glob("[0-9][0-9][0-9]_*.cypher"))
-        if not paths:
-            raise ValueError("no reviewed graph migrations found")
-        versions = {int(path.name.split("_", 1)[0]) for path in paths}
-        if len(versions) != len(paths):
-            raise ValueError("duplicate graph migration version")
-        results: list[MigrationResult] = []
-        with self._driver.session(database=self._database) as session:
-            _verify_definitions(session, require_all=False)
-            installed = {
-                int(row["version"]): str(row["sha256"])
-                for row in session.run(
-                    "MATCH (m:GraphSchemaMigration) RETURN m.version AS version, m.sha256 AS sha256"
-                )
-            }
-            if set(installed) - versions:
-                raise ValueError(
-                    "database contains unknown graph migration versions; do not downgrade"
-                )
-            for path in paths:
-                version = int(path.name.split("_", 1)[0])
-                body = path.read_bytes()
-                checksum = sha256(body).hexdigest()
-                if version in installed and installed[version] != checksum:
-                    raise ValueError(
-                        f"applied graph migration {version} changed; add a new version"
-                    )
-                constraints_added = indexes_added = 0
-                # Neo4j schema DDL and data markers cannot share a transaction.
-                # Each operation is additive/IF NOT EXISTS; partial application is
-                # safely resumable. Record completion only after all indexes are ready.
-                for statement in body.decode("utf-8").split(";"):
-                    if statement.strip():
-                        summary = session.run(statement).consume()
-                        constraints_added += summary.counters.constraints_added
-                        indexes_added += summary.counters.indexes_added
-                session.run("CALL db.awaitIndexes($seconds)", seconds=60).consume()
-                _verify_definitions(session, require_all=True)
-                row = session.run(
-                    "MERGE (m:GraphSchemaMigration {version: $version}) "
-                    "ON CREATE SET m.sha256=$checksum, m.applied_at=datetime() "
-                    "RETURN m.sha256 AS sha256",
-                    version=version,
-                    checksum=checksum,
-                ).single(strict=True)
-                if row is None or row["sha256"] != checksum:
-                    raise ValueError("concurrent graph migration checksum conflict")
-                results.append(
-                    MigrationResult(
-                        version,
-                        checksum,
-                        version not in installed,
-                        constraints_added,
-                        indexes_added,
-                    )
-                )
-        return results
+    Identifiers come only from the definitions above, never caller input. Each DDL
+    statement commits separately; IF NOT EXISTS makes interrupted setup resumable.
+    Existing migration records/constraints from older releases are left untouched.
+    """
+    driver.verify_connectivity()
+    constraints_added = indexes_added = 0
+    with driver.session(database=database) as session:
+        _verify_definitions(session, require_all=False)
+        for name, (label, properties) in CONSTRAINTS.items():
+            expression = ", ".join(f"n.{property_name}" for property_name in properties)
+            summary = session.run(
+                f"CREATE CONSTRAINT {name} IF NOT EXISTS FOR (n:{label}) "
+                f"REQUIRE ({expression}) IS UNIQUE"
+            ).consume()
+            constraints_added += summary.counters.constraints_added
+            indexes_added += summary.counters.indexes_added
+        for name, (label, properties) in INDEXES.items():
+            expression = ", ".join(f"n.{property_name}" for property_name in properties)
+            summary = session.run(
+                f"CREATE INDEX {name} IF NOT EXISTS FOR (n:{label}) ON ({expression})"
+            ).consume()
+            indexes_added += summary.counters.indexes_added
+        session.run("CALL db.awaitIndexes($seconds)", seconds=60).consume()
+        _verify_definitions(session, require_all=True)
+    return {"constraints_added": constraints_added, "indexes_added": indexes_added}

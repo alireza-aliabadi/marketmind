@@ -59,10 +59,14 @@ dependency boundaries. `make ownership-test` starts only PostgreSQL in an isolat
 port-free project and verifies owner access and cross-owner denials. It needs no
 AIStor license and leaves development data untouched.
 
-The bootstrap reserves empty schemas and owner roles, not runtime LOGIN accounts
-or credentials. Existing databases require explicit reviewed `make ownership-init`;
-entrypoint scripts affect only empty data directories. Runtime users must inherit
-only their own owner role and must not use the bootstrap administrator. Planned
+The optional infrastructure bootstrap reserves empty schemas and owner roles, not
+runtime LOGIN accounts or credentials. It affects only empty data directories;
+existing databases can explicitly reserve all namespaces with `make ownership-init`.
+The market-data Go binary instead owns its `setup` command, including its own
+schema/roles and embedded migrations, without an external SQL/Bash bootstrap.
+Runtime users must inherit
+only their own service's permissions and must not use the bootstrap administrator;
+production market users inherit the DML-only runtime role, not its owner. Planned
 object-store reads are explicit interfaces (for example, extraction of permitted
 raw filing artifacts), not permission to query the producer's database.
 

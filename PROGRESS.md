@@ -191,17 +191,18 @@ Evidence: [Through-M3.1 verification report](docs/reports/through-m3.1-verificat
 ### M3.1 — Graph schema
 
 Evidence: [Through-M3.1 verification report](docs/reports/through-m3.1-verification.md),
-[schema v1](docs/data-model/graph-schema.md), and [ADR-0010](docs/architect/ADR-0010-graph-schema-and-scope.md).
+[schema v1](docs/data-model/graph-schema.md), [ADR-0010](docs/architect/ADR-0010-graph-schema-and-scope.md),
+and [native setup decision](docs/architect/ADR-0012-native-setup.md).
 
 - [x] Define canonical Company and Instrument identities. Padded CIK/share-class FIGI; no name/ticker resolution workflow.
 - [x] Define MarketEvent, Sector, Industry, Product, Source, and Claim nodes. Schema specification only, not a claim domain model/ingester.
 - [x] Define typed relationships and direction semantics.
-- [x] Add Neo4j uniqueness constraints and indexes. Eleven actual uniqueness constraints/nine explicit range indexes; Community does not enforce presence, time or tenant visibility.
-- [x] Document graph schema and migration/versioning strategy. Additive, checksummed, resumable; conflicting names/rewritten versions fail without overwrite.
+- [x] Add Neo4j uniqueness constraints and indexes. Ten business uniqueness constraints/nine explicit range indexes; legacy bookkeeping is preserved but no longer created. Community does not enforce presence, time or tenant visibility.
+- [x] Document graph schema and evolution/setup strategy. Idempotent Python DDL, resumable setup and reserved-name conflict checks; breaking/data changes require an explicit operator plan, not automatic reset.
 
 **Requested stop:** M3.2 and all later AI/retrieval work remain unchecked and
 unimplemented. See [manual AI requirements and acceptance criteria](docs/requirements/ai-manual-handoff.md)
-for a code-free handoff. Schema migrations seed no business graph knowledge.
+for a code-free handoff. Schema setup seeds no business graph knowledge.
 
 ### M3.2 — Claim and relationship ingestion
 
@@ -422,6 +423,69 @@ Targets are engineering goals, not achieved metrics. Record actual results, data
 ## Engineering log
 
 Append entries newest-first.
+
+### 2026-11-19 — Native Python/Go setup without Bash requirements
+
+- Replaced graph migration files/version/checksum nodes with `ensure_schema(driver)`
+  in Python. Preserved ten business uniqueness constraints, nine explicit indexes,
+  conflict checks, readiness and retry safety. Old bookkeeping/data is not deleted.
+- Installed the existing Python packages normally and added `marketmind-api`,
+  `graph-setup` and `python -m` entry points. Removed `PYTHONPATH`/`MYPYPATH` setup
+  workarounds. API binds to loopback by default; Make is an optional convenience.
+- Added Go `market-data setup` for its own NOLOGIN owner/schema, installed TimescaleDB
+  extension, embedded SQL migrations and DML-only runtime group. SQL migration
+  hashes, explicit operator/runtime secrets, verified TLS, source grants, shared
+  quotas, bounded retries and worker limits remain. No LOGIN/password is invented.
+- Removed the two project Bash infrastructure scripts and duplicate startup probes.
+  Compose handles startup readiness; native Python retains optional authenticated
+  checks and isolated five-store persistence/cleanup verification.
+- Python image uses frozen dependencies, a cached dependency layer, compiled
+  bytecode, non-root execution and a runtime-only build-context whitelist.
+- Default verification: `uv run --frozen pytest` **154 passed, 63 opt-in skipped**;
+  Ruff lint passed; strict mypy passed for 25 sources. `make lint-go build-go
+  contracts-check architecture-check` and all three modules' `-race -count=1`
+  tests passed. Existing graph-domain edits/comments were preserved.
+- Actual disposable runtime verification: `RUN_GRAPH_SCHEMA_TESTS=1 uv run
+  --frozen pytest -s tests/test_graph_schema.py` **5 passed**, including the native
+  installed CLI outside the checkout; `RUN_MARKET_RUNTIME_TESTS=1 uv run --frozen
+  pytest -s tests/test_ingestion_runtime.py` **5 passed**, including native setup
+  without initialization SQL, DML/elevation denials, retry integrity and full
+  Timescale restore. The foreign-role fixture was explicitly test-owned rather
+  than widening the service's setup scope.
+- `RUN_MARKET_SECURE_TESTS=1 uv run --frozen pytest -s
+  tests/test_phase2_secure_transport.py` **2 passed**: verified-TLS native SQL setup,
+  TLS/SASL Kafka, bad credentials/CA, TLS downgrade and weak durability denials.
+  The race-enabled real gateway → native Python API scenario also passed OIDC,
+  tenant/RBAC, response contracts, upstream failure and graceful shutdown.
+- `uv run --frozen python -m infra test` passed actual PostgreSQL/TimescaleDB,
+  Redis, Kafka, Neo4j and AIStor persistence across recreation and owned cleanup.
+  One-off `/tmp/opencode/marketmind-native-image-verify.py` built the root Python
+  image and verified non-editable packages outside source, native CLI credential
+  failure, non-root/read-only operation and loopback HTTP 200 with resource limits;
+  its container/image tag were removed.
+- Follow-up schema typing: reproduced three Neo4j `LiteralString` diagnostics and
+  fixed them with literal-typed identifiers and static SHOW prefixes, without casts
+  or ignored warnings. Pyright reported zero errors; Ruff/mypy, 19 targeted tests
+  and five real Neo4j schema tests passed with query behavior unchanged.
+- User-authorized commit preparation preserved identity comment text while fixing
+  its whitespace. Full `make check` now passes Python lint/format/type checks,
+  contracts/architecture, 154 Python tests (63 opt-in skipped), all Go modules'
+  tests/builds/vet, and frontend lint/format/type/build. `git diff --check` passes.
+  One existing Starlette/httpx deprecation warning remains. The full all-service
+  ownership suite and remote CI were not rerun; no development data migration or
+  live provider use. Git publication was separately requested after verification.
+- Decision and native commands: [ADR-0012](docs/architect/ADR-0012-native-setup.md),
+  [local development](README.md#15-local-development) and the service READMEs.
+
+### 2026-11-18 — Simplified relationship specification
+
+- Removed the unused `RelationshipRule`/`RELATIONSHIPS` label-compatibility table
+  and its self-referential test. It duplicated the documented direction table and
+  was not used by any runtime code. `RelationshipType` remains the shared vocabulary.
+- Relationship endpoints stay writer requirements: M3.2 must validate them in
+  reviewed, parameterized Cypher because Neo4j Community DDL cannot enforce them.
+- Validation: Ruff check, strict mypy (8 graph sources), architecture check and full
+  pytest (135 passed, 62 opt-in store/graph checks skipped).
 
 ### 2026-11-17 — Continued user implementation through M3.1; explicit AI stop
 

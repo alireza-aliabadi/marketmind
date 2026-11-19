@@ -24,6 +24,9 @@ func TestProductionDatabaseControls(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer repository.Close()
+	if err := SetupConfigured(ctx, Config{URL: dsn}); err == nil {
+		t.Fatal("DML-only runtime credentials were allowed to perform operator setup")
+	}
 	// TLS is separately tested at the transport boundary; this private fixture
 	// exercises the actual SQL privilege guard without weakening production config.
 	repository.production = true

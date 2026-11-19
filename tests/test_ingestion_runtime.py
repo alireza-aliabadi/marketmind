@@ -49,16 +49,6 @@ def test_ingestion_milestone(scenario: str) -> None:
             TS_TUNE_MEMORY="1GB",
             TS_TUNE_NUM_CPUS="2",
         )
-        .with_volume_mapping(
-            ROOT / "infra/postgres/init/010-timescaledb.sql",
-            "/docker-entrypoint-initdb.d/010-timescaledb.sql",
-            "ro",
-        )
-        .with_volume_mapping(
-            ROOT / "infra/postgres/init/020-service-ownership.sql",
-            "/docker-entrypoint-initdb.d/020-service-ownership.sql",
-            "ro",
-        )
         .with_tmpfs_mount("/var/lib/postgresql", "size=512m")
         .with_command(["postgres", "-c", "shared_preload_libraries=timescaledb"])
         .with_kwargs(mem_limit="1g", shm_size="256m")
@@ -68,7 +58,7 @@ def test_ingestion_milestone(scenario: str) -> None:
                     "sh",
                     "-ec",
                     "PGPASSWORD=$POSTGRES_PASSWORD psql -h 127.0.0.1 -U postgres "
-                    "-d marketmind -Atc \"SELECT 1 FROM pg_roles WHERE rolname='mm_market_data'\" "
+                    "-d marketmind -Atc 'SELECT 1' "
                     "| grep -qx 1",
                 ]
             ).with_startup_timeout(180)

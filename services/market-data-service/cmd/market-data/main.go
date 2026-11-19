@@ -52,7 +52,7 @@ func errorClass(err error) string {
 
 func run(parent context.Context, args []string, output, errorOutput io.Writer) error {
 	if len(args) == 0 {
-		return fmt.Errorf("choose sec, fred, prices, migrate, topics, relay, consume, status, inspect or replay")
+		return fmt.Errorf("choose setup, sec, fred, prices, topics, worker, relay, consume, check, status, inspect, replay or retention")
 	}
 	command := args[0]
 	flags := flag.NewFlagSet("market-data "+command, flag.ContinueOnError)
@@ -92,7 +92,7 @@ func run(parent context.Context, args []string, output, errorOutput io.Writer) e
 	if mode == "production" && *fixture != "" {
 		return fmt.Errorf("production forbids synthetic/fixture endpoints")
 	}
-	if command == "migrate" || command == "runtime-init" {
+	if command == "setup" || command == "migrate" || command == "runtime-init" {
 		dsn, err := settings.Secret("MARKET_MIGRATION_DATABASE_URL")
 		if err != nil {
 			return err
@@ -100,6 +100,9 @@ func run(parent context.Context, args []string, output, errorOutput io.Writer) e
 		ctx, stop := context.WithTimeout(parent, *timeout)
 		defer stop()
 		connection := postgres.Config{URL: dsn, Production: mode == "production"}
+		if command == "setup" {
+			return postgres.SetupConfigured(ctx, connection)
+		}
 		if command == "runtime-init" {
 			return postgres.ProvisionRuntimeRole(ctx, connection)
 		}

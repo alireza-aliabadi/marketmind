@@ -42,11 +42,13 @@ func stack(t *testing.T) (context.Context, *Repository, *kafka.Client, string, *
 		t.Fatal(err)
 	}
 	t.Cleanup(admin.Close)
-	if err := Migrate(ctx, adminDSN); err != nil {
-		t.Fatal(err)
-	}
-	if err := Migrate(ctx, adminDSN); err != nil {
-		t.Fatal("migration replay is not idempotent", err)
+	for range 2 {
+		command := exec.CommandContext(ctx, os.Getenv("MARKET_TEST_BINARY"), "setup")
+		command.Env = append(os.Environ(), "MARKET_ENV=local", "MARKET_MIGRATION_DATABASE_URL="+adminDSN,
+			"MARKET_MIGRATION_DATABASE_URL_FILE=")
+		if output, err := command.CombinedOutput(); err != nil {
+			t.Fatal("native setup without SQL/bootstrap scripts failed", err, string(output))
+		}
 	}
 	_, err = admin.Exec(ctx, `CREATE ROLE market_test LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE
         NOREPLICATION NOBYPASSRLS PASSWORD 'synthetic-test-only-password' IN ROLE mm_market_data`)
@@ -492,7 +494,16 @@ func TestPersistenceMilestone(t *testing.T) {
 	if _, err := repository.Inspect(ctx, "arbitrary SQL", "1"); err == nil {
 		t.Fatal("unbounded query exposed")
 	}
-	_, err = admin.Exec(ctx, `SET ROLE mm_identity; CREATE TABLE identity.m24_access_probe (marker TEXT); RESET ROLE`)
+	// The market binary creates only its own namespace. This foreign-service probe
+	// is test-owned and must not require the old all-services initialization script.
+	_, err = admin.Exec(ctx, `DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='mm_identity') THEN
+            CREATE ROLE mm_identity NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+        END IF;
+        END $$;
+        CREATE SCHEMA IF NOT EXISTS identity AUTHORIZATION mm_identity;
+        REVOKE ALL ON SCHEMA identity FROM PUBLIC;
+        SET ROLE mm_identity; CREATE TABLE identity.m24_access_probe (marker TEXT); RESET ROLE`)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -17,11 +17,8 @@ func TestSecurePostgresRuntime(t *testing.T) {
 	ctx, stop := context.WithTimeout(context.Background(), 45*time.Second)
 	defer stop()
 	dsn := os.Getenv("MARKET_SECURE_POSTGRES")
-	if err := MigrateConfigured(ctx, Config{URL: dsn, Production: true}); err != nil {
-		t.Fatal("verified TLS migration failed", err)
-	}
-	if err := ProvisionRuntimeRole(ctx, Config{URL: dsn, Production: true}); err != nil {
-		t.Fatal(err)
+	if err := SetupConfigured(ctx, Config{URL: dsn, Production: true}); err != nil {
+		t.Fatal("verified TLS native setup failed", err)
 	}
 	admin, err := pgxpool.New(ctx, dsn)
 	if err != nil {

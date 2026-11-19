@@ -7,7 +7,7 @@ disabled until you have actual grants/access. Use `MARKET_ENV=production`,
 verified PostgreSQL TLS, authenticated Kafka TLS, mounted `_FILE` secrets and
 `MARKET_PROVIDER_GRANTS_FILE`. Production LOGINs use the DML-only
 `mm_market_data_runtime` group, **not** the owner-group local compatibility
-described below. Run explicit operator `runtime-init` after reviewed migrations.
+described below. Run the explicit operator `setup` command before workers.
 
 New operations: `worker --role relay/consumer` for supervised private workers,
 `check` for dependencies/durability, and `retention --retention-days N` for a dry
@@ -66,7 +66,8 @@ From this directory, use `go run ./cmd/market-data` followed by:
 | `fred` | `--series`, `--start`, `--end`, optional pinned `--vintage` |
 | `prices` | `--ticker`, `--start`, `--end`, optional `--adjusted` (splits, not dividends) |
 | provider command + `--enqueue` | Atomically queue raw snapshot/outbox; default is fetch/output only |
-| `migrate` | Operator-only; root alias `make market-migrate` |
+| `setup` | Operator-only: creates its owned schema/NOLOGIN owner, enables installed TimescaleDB, applies embedded migrations and grants the DML runtime group |
+| `migrate` / `runtime-init` | Optional lower-level operator commands; not required separately when using `setup` |
 | `topics` | Explicit three raw topics/DLQ creation; auto-topic creation stays disabled |
 | `relay --limit N` | Dispatch pending outbox with bounded retry |
 | `consume --group NAME --limit N` | Apply or durably park before offset acknowledgement |
@@ -79,6 +80,17 @@ message limits at 10,000. Inspect is not a complete paginated public API. Recent
 SEC history is explicitly incomplete; oversized snapshots (2 MiB) fail without
 truncation. `--fixture-endpoint` is loopback-only, labels synthetic rights and is
 never evidence of real provider/financial data.
+
+From the repository root, `go -C services/market-data-service run ./cmd/market-data setup`
+is the same native command; `make market-setup` is only a convenience alias.
+No Bash/psql bootstrap script or migration files beside the compiled binary are
+needed. `setup` creates only its own service schema/roles plus the TimescaleDB
+extension, rejects conflicting/elevated ownership and never resets data.
+SQL migration history stays
+because it protects evolving persisted tables, not just optional graph indexes.
+Runtime LOGINs/passwords remain managed explicit secrets; setup does not invent
+credentials or give worker accounts schema ownership. Kafka topic provisioning
+stays a separate native `topics` operation with operator permissions.
 
 ## Verification
 

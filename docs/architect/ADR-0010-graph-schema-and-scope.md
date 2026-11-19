@@ -3,6 +3,8 @@
 - **Status:** Accepted for the M3.1 schema foundation only
 - **Date:** 2026-11-17
 - **Boundary:** No M3.2 claim ingestion/resolution, temporal retrieval, GraphRAG or AI.
+- **Update:** Schema installation/version bookkeeping is superseded by
+  [ADR-0012](ADR-0012-native-setup.md); canonical identity/scope decisions remain.
 
 ## Decision
 

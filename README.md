@@ -984,7 +984,7 @@ Prerequisites:
 - Python 3.14+
 - Node.js 22.12.0+ and pnpm 12.18.0
 - `uv` or another pinned Python dependency manager
-- Make
+- Make (optional command aliases/check aggregation)
 - A valid, untracked AIStor `minio.license` beside `compose.yml`
 
 M1.3 infrastructure is implemented and verified. PostgreSQL 18 with TimescaleDB
@@ -1016,8 +1016,27 @@ make run
 make infra-down
 ```
 
-`make infra-up` enables the infrastructure profile and waits for passing health
-checks before verifying authenticated access. `make infra-test` independently
+Python and Go applications do not need Bash launchers or Make. From the repository
+root, use these native entry points (configure the required credentials/settings
+first and run each service in its own terminal):
+
+```text
+uv run marketmind-api --reload
+go -C services/api-gateway run ./cmd/server
+uv run graph-setup
+go -C services/market-data-service run ./cmd/market-data setup
+```
+
+`uv sync` installs the Python packages/entry points; Go manages dependencies from
+its modules. No `PYTHONPATH` workaround is needed. Setup commands are explicit
+operator operations, not prerequisites imposed by Neo4j for creating a node or
+permission for ordinary workers to use administrator credentials.
+
+`make infra-up` enables the infrastructure profile and waits for Compose's health
+checks; no second wrapper runs on startup. The equivalent native command is
+`docker compose --profile infra up --detach --wait --wait-timeout 240`.
+`uv run python -m infra check` optionally verifies authenticated access.
+`make infra-test` (`uv run python -m infra test`) independently
 tests clean startup and data survival across container recreation in a temporary
 Docker project; it does not overwrite `.env` or modify development databases.
 `make infra-down` preserves development volumes. `make infra-tools` optionally
@@ -1031,9 +1050,9 @@ so they stay port-free without Compose-specific YAML tags.
 
 See [Local Infrastructure](CONTRIBUTING.md#local-infrastructure) for host/container
 connection addresses, the AIStor license prerequisite, and migration precautions.
-Market/graph migrations now have explicit operator commands `make market-migrate`
-and `make graph-migrate`; neither automatically touches existing volumes. Export
-reviewed, separately provisioned operator/runtime settings before manual use.
+Market/graph setup has native operator commands shown above, with optional
+`make market-setup` / `make graph-setup` aliases; neither implicitly touches existing
+volumes. Export reviewed, separately provisioned operator/runtime settings before manual use.
 Migration/ingestion CLIs do not load `.env` or use administrator runtime fallbacks.
 
 M1.4 adds [versioned API/event contracts](contracts/README.md), a
@@ -1066,10 +1085,13 @@ retention/AI development absent permission; Massive public/multi-tenant/AI right
 require review. API keys are not licenses. Source AI-use policy defaults to denied.
 See ADR-0008/ADR-0009.
 
-M3.1 adds [canonical identities/schema](docs/data-model/graph-schema.md), eleven
-Neo4j uniqueness constraints and nine explicit range indexes, with additive
-checksums and reserved-name conflict checks. `make graph-schema-test` uses a
-private Community instance, not a populated business knowledge graph. Community
+M3.1 adds [canonical identities/schema](docs/data-model/graph-schema.md), ten
+business Neo4j uniqueness constraints and nine explicit range indexes, with
+idempotent Python setup and reserved-name conflict checks. Migration files and
+bookkeeping nodes are no longer required; existing records are preserved.
+See [native setup decision](docs/architect/ADR-0012-native-setup.md).
+`make graph-schema-test` uses a private Community instance, not a populated business
+knowledge graph. Community
 constraints/indexes do not enforce provenance, time or tenant visibility.
 
 No filing-document acquisition/S3 artifact publisher, claim model/ingestion,

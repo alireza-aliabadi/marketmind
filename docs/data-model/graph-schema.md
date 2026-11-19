@@ -1,6 +1,6 @@
 # Graph schema v1 — M3.1 boundary
 
-This is a schema specification and additive migration, **not** a graph population,
+This is a schema specification and idempotent setup, **not** a graph population,
 claim extraction, entity-resolution or retrieval implementation. Required writer
 properties below are requirements for M3.2; Community DDL enforces uniqueness only.
 
@@ -29,8 +29,11 @@ instrument ID. CIK canonical formatting matches the Go market-data service.
 
 ## Relationship vocabulary and direction
 
-The framework-free [domain specification](../../services/knowledge-graph-service/knowledge_graph_service/domain/schema.py)
-declares label compatibility. It does not insert relationships.
+Directions and label compatibility below are writer requirements, not Neo4j
+schema constraints. M3.2 writers must validate both endpoints with reviewed,
+parameterized Cypher; Community DDL cannot enforce relationship endpoints. The
+framework-free [domain type](../../services/knowledge-graph-service/knowledge_graph_service/domain/schema.py)
+provides only the shared relationship vocabulary.
 
 | Type | Direction | Semantics |
 |---|---|---|
@@ -52,7 +55,7 @@ declares label compatibility. It does not insert relationships.
 | DISPUTES | Counterclaim → Claim | Contradiction/counterevidence link |
 
 Entity means Company, Instrument, Sector, Industry, Product or MarketEvent where
-allowed by the typed specification. ADR-0004's `SUPPLIED_BY` sketch describes the
+allowed by the table above. ADR-0004's `SUPPLIED_BY` sketch describes the
 customer→supplier direction; it is not a separate authoritative predicate in v1.
 Future ingestion must explicitly normalize that alias, not reverse the meaning.
 
@@ -79,19 +82,25 @@ Future ingestion must explicitly normalize that alias, not reverse the meaning.
 
 ## Installed DDL and evolution
 
-Migration: [001_graph_schema.cypher](../../services/knowledge-graph-service/knowledge_graph_service/infra/migrations/001_graph_schema.cypher).
-Eleven uniqueness constraints (eight label keys, two canonical IDs, one migration
-version) and nine explicit range indexes support names/symbols, source identifiers,
+Definitions live in [schema.py](../../services/knowledge-graph-service/knowledge_graph_service/infra/schema.py).
+Ten business uniqueness constraints (eight label keys and two canonical IDs)
+and nine explicit range indexes support names/symbols, source identifiers,
 claim scope/predicate/status, validity/observation dates and event/source dates.
 Vector and full-text indexes are deferred to M3.4.
 
-Apply via `make graph-migrate` only after explicitly exporting schema-operator
-settings. Existing `.env`/development databases are not automatically migrated.
-The runner records SHA-256 of each ordered migration after DDL/index readiness;
-repeat applications add nothing. Partial DDL is additive/resumable. Never edit an
-applied version, downgrade an unknown newer version, drop data or reset a graph to
-make a migration pass. Breaking changes require a new migration, documented
-backfill/compatibility plan and preserved evidence IDs.
+Run `uv run graph-setup` after explicitly configuring schema-operator settings.
+No Bash script, `PYTHONPATH`, external Cypher file or migration-history node is
+required. Setup checks existing definitions, creates missing items with
+`IF NOT EXISTS`, waits for indexes, and verifies completion. Repeat applications
+add nothing; interrupted DDL is resumable. Old migration records/constraints are
+preserved but no longer consulted or created. See [ADR-0012](../architect/ADR-0012-native-setup.md).
+
+Existing `.env`/development databases are never implicitly modified. Adding an
+index/constraint means updating the reviewed Python definitions. Changing an
+existing definition, removing one, or transforming business data is **not** handled
+by setup: use an explicit backfill/compatibility plan preserving evidence IDs.
+Conflicting definitions fail without overwrite; never drop data or reset a graph
+to make setup pass.
 
 Runtime acceptance: `make graph-schema-test` creates a disposable Neo4j
 5.26.33 Community instance. Synthetic constraint probes are not a knowledge graph

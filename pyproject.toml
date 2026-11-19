@@ -11,6 +11,10 @@ dependencies = [
   "neo4j>=6.4.1",
 ]
 
+[project.scripts]
+marketmind-api = "src.presentation.http.__main__:main"
+graph-setup = "knowledge_graph_service.presentation.setup:main"
+
 [project.optional-dependencies]
 dev = [
   "pytest",
@@ -22,8 +26,12 @@ dev = [
   "testcontainers>=4.15.0",
 ]
 
-[tool.poetry]
-package-mode = false
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src", "services/knowledge-graph-service/knowledge_graph_service"]
 
 [tool.ruff]
 line-length = 100
@@ -35,7 +43,7 @@ ignore = ["B008"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = [".", "services/knowledge-graph-service"]
+pythonpath = ["."]
 addopts = "-q"
 
 [tool.mypy]

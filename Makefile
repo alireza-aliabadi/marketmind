@@ -4,12 +4,12 @@ GO_MODULES = services/api-gateway services/identity-service services/market-data
 GO_TEST_FLAGS ?=
 GATEWAY_TEST_TMPDIR ?= /tmp/opencode
 
-.PHONY: help infra-config infra-up infra-down infra-check infra-test infra-tools infra-logs contracts-check architecture-check ownership-test ownership-init api run gateway gateway-test market-data-test market-production-test market-container-test market-migrate market-runtime-init graph-schema-test graph-migrate pre-commit-check test test-python test-go build-go lint lint-python lint-go frontend-lint frontend-check format format-go check
+.PHONY: help infra-config infra-up infra-down infra-check infra-test infra-tools infra-logs contracts-check architecture-check ownership-test ownership-init api run gateway gateway-test market-data-test market-production-test market-container-test market-setup market-migrate market-runtime-init graph-schema-test graph-setup graph-migrate pre-commit-check test test-python test-go build-go lint lint-python lint-go frontend-lint frontend-check format format-go check
 
 help:
 	@echo "Available commands:"
 	@echo "  make infra-config - Validate Compose configuration and the local AIStor license file"
-	@echo "  make infra-up    - Start infrastructure and verify readiness"
+	@echo "  make infra-up    - Start infrastructure and wait for its health checks"
 	@echo "  make infra-down  - Stop infrastructure without deleting volumes"
 	@echo "  make infra-check - Verify infrastructure health and authenticated access"
 	@echo "  make infra-test  - Test startup and persistence in an isolated Docker project"
@@ -24,11 +24,12 @@ help:
 	@echo "  make gateway     - Run the OIDC-protected Go gateway (requires issuer/audience configuration)"
 	@echo "  make gateway-test - Test the real Go gateway -> FastAPI flow with a disposable OIDC issuer"
 	@echo "  make market-data-test - Verify M2.3/M2.4 with isolated Kafka/PostgreSQL Testcontainers"
+	@echo "  make market-setup - Set up the owned market schema and DML runtime role in Go"
 	@echo "  make market-migrate - Explicitly apply owned market migrations with operator credentials"
 	@echo "  make market-runtime-init - Explicitly provision the non-owner DML runtime group"
 	@echo "  make market-production-test - Verify future-production TLS/auth and recovery controls locally"
 	@echo "  make graph-schema-test - Verify M3.1 in isolated Neo4j Testcontainers"
-	@echo "  make graph-migrate - Explicitly apply the additive graph schema with operator credentials"
+	@echo "  make graph-setup - Install missing graph constraints/indexes in Python"
 	@echo "  make pre-commit-check - Run configured hooks on tracked files"
 	@echo "  make test        - Run Python and Go test suites"
 	@echo "  make lint        - Run Python, Go, and frontend lint/format/type checks"
@@ -42,13 +43,12 @@ infra-config:
 
 infra-up: infra-config
 	$(INFRA_COMPOSE) up --detach --wait --wait-timeout 240
-	$(MAKE) infra-check
 
 infra-check: infra-config
-	bash scripts/verify-infra.sh $(INFRA_COMPOSE_ARGS)
+	uv run python -m infra check $(INFRA_COMPOSE_ARGS)
 
 infra-test:
-	bash scripts/test-infra.sh
+	uv run python -m infra test
 
 infra-tools: infra-up
 	$(INFRA_COMPOSE) --profile tools up --detach kafka-ui
@@ -72,26 +72,29 @@ ownership-init: infra-config
 	$(INFRA_COMPOSE) exec -T postgres sh -ec 'export PGPASSWORD="$$POSTGRES_PASSWORD"; exec psql -h 127.0.0.1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" -X -v ON_ERROR_STOP=1' < infra/postgres/init/020-service-ownership.sql
 
 api:
-	uv run uvicorn src.presentation.http.main:app --reload --host 0.0.0.0 --port 8000
+	uv run marketmind-api --reload
 
 run: api
 
 gateway:
-	cd services/api-gateway && go run ./cmd/server
+	go -C services/api-gateway run ./cmd/server
 
 gateway-test:
 	@mkdir -p "$(GATEWAY_TEST_TMPDIR)"
-	cd services/api-gateway && TMPDIR="$(GATEWAY_TEST_TMPDIR)" RUN_GATEWAY_INTEGRATION_TESTS=1 go test -count=1 -v ./cmd/server -run TestGatewayEndToEnd
+	TMPDIR="$(GATEWAY_TEST_TMPDIR)" RUN_GATEWAY_INTEGRATION_TESTS=1 go -C services/api-gateway test -count=1 -v ./cmd/server -run TestGatewayEndToEnd
 
 market-data-test:
 	@mkdir -p /tmp/opencode
 	RUN_MARKET_RUNTIME_TESTS=1 uv run pytest -s tests/test_ingestion_runtime.py
 
+market-setup:
+	go -C services/market-data-service run ./cmd/market-data setup
+
 market-migrate:
-	cd services/market-data-service && go run ./cmd/market-data migrate
+	go -C services/market-data-service run ./cmd/market-data migrate
 
 market-runtime-init:
-	cd services/market-data-service && go run ./cmd/market-data runtime-init
+	go -C services/market-data-service run ./cmd/market-data runtime-init
 
 market-production-test: market-data-test
 	RUN_MARKET_SECURE_TESTS=1 uv run pytest -s tests/test_phase2_secure_transport.py
@@ -105,8 +108,10 @@ graph-schema-test:
 	@mkdir -p /tmp/opencode
 	RUN_GRAPH_SCHEMA_TESTS=1 uv run pytest -s tests/test_graph_schema.py
 
-graph-migrate:
-	PYTHONPATH=services/knowledge-graph-service uv run python -m knowledge_graph_service.presentation.migrate
+graph-setup:
+	uv run graph-setup
+
+graph-migrate: graph-setup
 
 pre-commit-check:
 	uv tool run pre-commit run --config .pre-commit-config.yml --all-files
@@ -115,21 +120,21 @@ test-python:
 	uv run pytest
 
 test-go:
-	@for service in $(GO_MODULES); do (cd "$$service" && go test $(GO_TEST_FLAGS) ./...) || exit 1; done
+	@for service in $(GO_MODULES); do go -C "$$service" test $(GO_TEST_FLAGS) ./... || exit 1; done
 
 build-go:
-	@for service in $(GO_MODULES); do (cd "$$service" && go build ./...) || exit 1; done
+	@for service in $(GO_MODULES); do go -C "$$service" build ./... || exit 1; done
 
 test: test-python test-go
 
 lint-python:
 	uv run ruff check .
 	uv run ruff format --check .
-	MYPYPATH=services/knowledge-graph-service uv run mypy src services/knowledge-graph-service/knowledge_graph_service
+	uv run mypy src services/knowledge-graph-service/knowledge_graph_service infra
 
 lint-go:
 	@unformatted=$$(gofmt -l $(GO_MODULES)); if [ -n "$$unformatted" ]; then printf 'Run make format-go on:\n%s\n' "$$unformatted"; exit 1; fi
-	@for service in $(GO_MODULES); do (cd "$$service" && go vet ./...) || exit 1; done
+	@for service in $(GO_MODULES); do go -C "$$service" vet ./... || exit 1; done
 
 frontend-lint:
 	pnpm --dir frontend/web run lint

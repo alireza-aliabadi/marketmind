@@ -3,6 +3,11 @@
 Date: 2026-11-17. Scope stops before M3.2. Local evidence only; no commit,
 push, remote CI run, provider subscription or live financial-data acceptance.
 
+This report preserves the original verification history. The 2026-11-19 native
+setup changes supersede its graph migration bookkeeping and shell-tooling details;
+see [ADR-0012](../architect/ADR-0012-native-setup.md) and the latest
+[engineering log](../../PROGRESS.md#engineering-log) for current verified behavior.
+
 ## Preservation and baseline
 
 The initial working tree contained only an untracked market-data Go module and

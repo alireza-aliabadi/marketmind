@@ -12,7 +12,7 @@ from typing import Any
 
 import pytest
 
-TEST_INFRA = Path(__file__).resolve().parents[1] / "scripts" / "test-infra.sh"
+TEST_INFRA = Path(__file__).resolve().parents[1] / "infra" / "__main__.py"
 SERVICES = ("postgres", "redis", "kafka", "neo4j", "aistor")
 PersistenceRunner = Callable[..., tuple[subprocess.CompletedProcess[str], list[dict[str, Any]]]]
 
@@ -115,10 +115,9 @@ finish(error="Unexpected Docker command")
 def persistence_runner(tmp_path: Path) -> PersistenceRunner:
     """Copy only the harness into a mock project with no real secrets or Docker."""
     project = tmp_path / "mock project"
-    scripts = project / "scripts"
-    scripts.mkdir(parents=True)
-    shutil.copyfile(TEST_INFRA, scripts / "test-infra.sh")
-    (scripts / "verify-infra.sh").write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+    infra = project / "infra"
+    infra.mkdir(parents=True)
+    shutil.copyfile(TEST_INFRA, infra / "__main__.py")
     (project / "minio.license").write_text("dummy test license\n", encoding="utf-8")
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
@@ -131,7 +130,7 @@ def persistence_runner(tmp_path: Path) -> PersistenceRunner:
         scenario: dict[str, Any] | None = None,
     ) -> tuple[subprocess.CompletedProcess[str], list[dict[str, Any]]]:
         result = subprocess.run(
-            ["bash", str(scripts / "test-infra.sh")],
+            [sys.executable, str(infra / "__main__.py"), "test"],
             cwd=tmp_path,
             env={
                 "PATH": f"{bin_dir}{os.pathsep}{os.defpath}",

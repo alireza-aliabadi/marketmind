@@ -84,7 +84,7 @@ func verifyMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 	}
 	rows, err := pool.Query(ctx, `SELECT version,sha256 FROM market_data.schema_migrations`)
 	if err != nil {
-		return fmt.Errorf("explicit market migrations required before startup")
+		return fmt.Errorf("run the operator-only market-data setup command before startup")
 	}
 	defer rows.Close()
 	installed := map[string]string{}

@@ -128,7 +128,7 @@
       "status": "template",
       "language": "python",
       "import_root": "knowledge_graph_service",
-      "composition_roots": ["knowledge_graph_service/presentation/migrate.py"],
+      "composition_roots": ["knowledge_graph_service/__main__.py", "knowledge_graph_service/presentation/setup.py"],
       "postgresql": {
         "schema": "knowledge_graph",
         "owner_role": "mm_knowledge_graph",

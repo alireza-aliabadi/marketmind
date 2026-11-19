@@ -238,7 +238,7 @@ func TestGatewayEndToEnd(t *testing.T) {
 	client := &http.Client{Timeout: 7 * time.Second}
 	samplePort := unusedPort(t)
 	sampleURL := "http://127.0.0.1:" + samplePort
-	sampleCommand := exec.Command(python, "-m", "uvicorn", "src.presentation.http.main:app", "--app-dir", root, "--host", "127.0.0.1", "--port", samplePort)
+	sampleCommand := exec.Command(python, "-m", "src.presentation.http", "--host", "127.0.0.1", "--port", samplePort)
 	sampleCommand.Dir = directory // Settings cannot read the development .env here.
 	sampleCommand.Env = processEnvironment(map[string]string{"APP_NAME": "phase1-sample", "APP_ENV": "test", "APP_VERSION": "0.1.0"})
 	sample := startProcess(t, sampleCommand, filepath.Join(directory, "sample.log"))

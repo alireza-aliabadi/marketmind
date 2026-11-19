@@ -72,7 +72,7 @@ jobs:
         run: uv run ruff format --check .
 
       - name: Type check with Mypy
-        run: MYPYPATH=services/knowledge-graph-service uv run mypy src services/knowledge-graph-service/knowledge_graph_service
+        run: uv run mypy src services/knowledge-graph-service/knowledge_graph_service infra
 
       - name: Run Pytest
         run: uv run pytest

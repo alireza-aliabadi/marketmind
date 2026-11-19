@@ -6,9 +6,9 @@ from enum import StrEnum
 
 class NodeLabel(StrEnum):
     COMPANY = "Company"
-    INSTRUMENT = "Instrument"
+    INSTRUMENT = "Instrument"  # Company share
     MARKET_EVENT = "MarketEvent"
-    SECTOR = "Sector"
+    SECTOR = "Sector"  # Economy related area
     INDUSTRY = "Industry"
     PRODUCT = "Product"
     SOURCE = "Source"

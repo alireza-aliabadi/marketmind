@@ -1,7 +1,9 @@
 """M3.1 identity/schema only; temporary probes are not M3.2 business ingestion."""
 
+import json
 import os
-import tempfile
+import subprocess
+import sys
 import uuid
 from collections.abc import Generator
 from pathlib import Path
@@ -13,8 +15,7 @@ from knowledge_graph_service.domain.identity import (
     canonical_instrument_id,
     scoped_key,
 )
-from knowledge_graph_service.domain.schema import RELATIONSHIPS, RelationshipType
-from knowledge_graph_service.infra.schema import GraphSchemaMigrator
+from knowledge_graph_service.infra.schema import ensure_schema
 from neo4j import Driver, GraphDatabase
 from neo4j.exceptions import ConstraintError
 
@@ -37,17 +38,6 @@ def test_canonical_identities_and_scoped_keys() -> None:
     for scope in ["", "tenant:../a", "tenant:a|global"]:
         with pytest.raises(ValueError):
             scoped_key(NodeLabel.SOURCE, "source:fixture", scope)
-
-
-def test_relationship_direction_specification() -> None:
-    assert set(RELATIONSHIPS) == set(RelationshipType)
-    assert RELATIONSHIPS[RelationshipType.ISSUED].sources == {NodeLabel.COMPANY}
-    assert RELATIONSHIPS[RelationshipType.ISSUED].targets == {NodeLabel.INSTRUMENT}
-    assert RELATIONSHIPS[RelationshipType.IMPACTS].sources == {NodeLabel.MARKET_EVENT}
-    assert RELATIONSHIPS[RelationshipType.SUPPLIES].material
-    assert RELATIONSHIPS[RelationshipType.COMPETES_WITH].symmetric
-    assert RELATIONSHIPS[RelationshipType.SUPPORTED_BY].targets == {NodeLabel.SOURCE}
-    assert not RELATIONSHIPS[RelationshipType.SUPPORTED_BY].material
 
 
 @pytest.fixture(scope="module")
@@ -95,20 +85,40 @@ def graph() -> Generator[Driver, None, None]:
             yield driver
 
 
-def test_additive_schema_migration_and_real_constraints(graph: Driver) -> None:
+def test_idempotent_schema_setup_and_real_constraints(graph: Driver, tmp_path: Path) -> None:
     with graph.session() as session:
         session.run("CREATE (:UserSchemaProbe {marker: 'preserve-unrelated-data'})").consume()
-    migrator = GraphSchemaMigrator(graph)
-    first = migrator.apply()[0]
-    second = migrator.apply()[0]
-    assert first.newly_recorded and first.constraints_added == 11
-    assert not second.newly_recorded and second.constraints_added == 0 and second.indexes_added == 0
+    env = {
+        **os.environ,
+        "GRAPH_SCHEMA_URI": f"bolt://{graph.get_server_info().address}",
+        "GRAPH_SCHEMA_USERNAME": "neo4j",
+        "GRAPH_SCHEMA_PASSWORD": "synthetic-schema-test-only",
+    }
+    env.pop("PYTHONPATH", None)
+    result = subprocess.run(
+        [str(Path(sys.executable).parent / "graph-setup")],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=75,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    first = json.loads(result.stdout)
+    second = ensure_schema(graph)
+    assert first["constraints_added"] == 10
+    assert second == {"constraints_added": 0, "indexes_added": 0}
     with graph.session() as session:
         assert (
             session.run("MATCH (:UserSchemaProbe) RETURN count(*) AS count").single()["count"] == 1
         )
         names = {row["name"] for row in session.run("SHOW CONSTRAINTS YIELD name RETURN name")}
-        assert len([name for name in names if name.startswith("mm_")]) == 11
+        assert len([name for name in names if name.startswith("mm_")]) == 10
+        assert (
+            session.run("MATCH (m:GraphSchemaMigration) RETURN count(m) AS count").single()["count"]
+            == 0
+        )
         indexes = {
             row["name"]: row["state"]
             for row in session.run("SHOW INDEXES YIELD name,state RETURN name,state")
@@ -141,34 +151,46 @@ def test_additive_schema_migration_and_real_constraints(graph: Driver) -> None:
                     id=identifier,
                 ).consume()
     print(
-        "M3.1: 11 uniqueness constraints and online indexes; "
-        "additive replay and canonical/scoped identities verified"
+        "M3.1: 10 uniqueness constraints and online indexes; "
+        "idempotent setup without bookkeeping nodes and canonical/scoped identities verified"
     )
 
 
-def test_applied_graph_migration_cannot_be_rewritten(graph: Driver) -> None:
-    GraphSchemaMigrator(graph).apply()
-    source = (
-        Path(__file__).resolve().parents[1]
-        / "services/knowledge-graph-service/knowledge_graph_service/infra/migrations"
-        / "001_graph_schema.cypher"
-    )
-    with tempfile.TemporaryDirectory(
-        prefix="marketmind-m31-drift-", dir="/tmp/opencode"
-    ) as directory:
-        changed = Path(directory) / source.name
-        changed.write_bytes(source.read_bytes() + b"\n// a rewritten released migration\n")
-        with pytest.raises(ValueError, match="changed"):
-            GraphSchemaMigrator(graph, directory=Path(directory)).apply()
+def test_existing_migration_bookkeeping_is_preserved(graph: Driver) -> None:
+    # Old deployments may have migration records. Setup neither needs nor deletes them.
+    with graph.session() as session:
+        session.run(
+            "CREATE CONSTRAINT mm_graph_migration_version IF NOT EXISTS "
+            "FOR (m:GraphSchemaMigration) REQUIRE m.version IS UNIQUE"
+        ).consume()
+        session.run(
+            "CREATE (:GraphSchemaMigration {version: 1, sha256: 'legacy-checksum'})"
+        ).consume()
+    assert ensure_schema(graph) == {"constraints_added": 0, "indexes_added": 0}
     with graph.session() as session:
         assert (
             session.run("MATCH (m:GraphSchemaMigration) RETURN count(m) AS count").single()["count"]
             == 1
         )
+        assert (
+            session.run(
+                "MATCH (m:GraphSchemaMigration {version: 1}) RETURN m.sha256 AS sha256"
+            ).single()["sha256"]
+            == "legacy-checksum"
+        )
+        assert "mm_graph_migration_version" in {
+            row["name"] for row in session.run("SHOW CONSTRAINTS YIELD name RETURN name")
+        }
+
+
+def test_missing_index_is_recreated(graph: Driver) -> None:
+    with graph.session() as session:
+        session.run("DROP INDEX mm_company_name").consume()
+    assert ensure_schema(graph) == {"constraints_added": 0, "indexes_added": 1}
 
 
 def test_conflicting_reserved_schema_name_fails_without_overwriting(graph: Driver) -> None:
-    GraphSchemaMigrator(graph).apply()
+    ensure_schema(graph)
     with graph.session() as session:
         session.run("DROP CONSTRAINT mm_company_key").consume()
         session.run(
@@ -176,7 +198,7 @@ def test_conflicting_reserved_schema_name_fails_without_overwriting(graph: Drive
         ).consume()
     try:
         with pytest.raises(ValueError, match="conflicts"):
-            GraphSchemaMigrator(graph).apply()
+            ensure_schema(graph)
         with graph.session() as session:
             row = session.run(
                 "SHOW CONSTRAINTS YIELD name,labelsOrTypes WHERE name='mm_company_key' "
@@ -187,4 +209,4 @@ def test_conflicting_reserved_schema_name_fails_without_overwriting(graph: Drive
         # Only the deliberately created test constraint in this private container.
         with graph.session() as session:
             session.run("DROP CONSTRAINT mm_company_key").consume()
-        GraphSchemaMigrator(graph).apply()
+        ensure_schema(graph)

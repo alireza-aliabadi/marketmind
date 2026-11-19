@@ -33,3 +33,25 @@ func TestCLIFixtureAndConfigurationFailure(t *testing.T) {
 		}
 	}
 }
+
+func TestCLISetupRequiresExplicitOperatorCredentials(t *testing.T) {
+	t.Setenv("MARKET_ENV", "local")
+	t.Setenv("MARKET_MIGRATION_DATABASE_URL", "")
+	t.Setenv("MARKET_MIGRATION_DATABASE_URL_FILE", "")
+	t.Setenv("MARKET_DATABASE_URL", "postgresql://runtime:synthetic-sensitive-password@localhost/marketmind")
+	var output bytes.Buffer
+	if err := run(context.Background(), []string{"setup"}, &output, &output); err == nil {
+		t.Fatal("setup used runtime credentials or an administrator fallback")
+	}
+	if strings.Contains(output.String(), "synthetic-sensitive-password") {
+		t.Fatal("setup leaked credentials")
+	}
+	if err := run(context.Background(), []string{"setup", "--help"}, &output, &output); err != nil {
+		t.Fatal("setup help unexpectedly required a database", err)
+	}
+	t.Setenv("MARKET_ENV", "production")
+	t.Setenv("MARKET_MIGRATION_DATABASE_URL", "postgresql://operator:synthetic@localhost/marketmind?sslmode=disable")
+	if err := run(context.Background(), []string{"setup"}, &output, &output); err == nil {
+		t.Fatal("setup allowed a production TLS downgrade")
+	}
+}

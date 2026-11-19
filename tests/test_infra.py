@@ -14,7 +14,7 @@ from typing import Any
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-VERIFY_INFRA = REPO_ROOT / "scripts" / "verify-infra.sh"
+VERIFY_INFRA = REPO_ROOT / "infra" / "__main__.py"
 SERVICES = ("postgres", "redis", "kafka", "neo4j", "aistor")
 COMPOSE_PREFIX = (
     "compose",
@@ -95,7 +95,7 @@ sys.exit(exit_code)
 
 @pytest.fixture
 def infra_runner(tmp_path: Path) -> InfraRunner:
-    """Run the real readiness script with every Docker call replaced and logged."""
+    """Run the native readiness entry point with every Docker call replaced and logged."""
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     docker = bin_dir / "docker"
@@ -119,7 +119,7 @@ def infra_runner(tmp_path: Path) -> InfraRunner:
             "FAKE_DOCKER_SCENARIO": json.dumps(scenario or {}),
         }
         result = subprocess.run(
-            ["bash", str(VERIFY_INFRA), *options],
+            [sys.executable, str(VERIFY_INFRA), "check", *options],
             cwd=cwd,
             env=environment,
             input="",
@@ -198,17 +198,18 @@ def test_verify_infra_healthy_services(infra_runner: InfraRunner) -> None:
 
     neo4j_args = probes["neo4j"]["argv"][len(COMPOSE_PREFIX) + 3 :]
     assert neo4j_args[0] == "sh"
-    neo4j_words = shell_words(neo4j_args[-1])
+    neo4j_words = shell_words(neo4j_args[2])
     assert "cypher-shell" in neo4j_words
     assert {"-u", "--username"}.intersection(neo4j_words)
     assert {"-p", "--password"}.intersection(neo4j_words)
 
     aistor_args = probes["aistor"]["argv"][len(COMPOSE_PREFIX) + 3 :]
     assert aistor_args[0] == "sh"
-    aistor_shell = aistor_args[-1]
+    aistor_shell = aistor_args[2]
     aistor_words = shell_words(aistor_shell)
     assert "mc" in aistor_words
-    assert "ls" in aistor_words
+    assert aistor_args[-3:] == ["sh", "ls", "verification"]
+    assert '"$@"' in aistor_shell
     assert ("alias" in aistor_words and "set" in aistor_words) or "MC_HOST_" in aistor_shell
     assert re.search(r"\bmktemp\b[^;\n)]*\s(?:-d|--directory)\b", aistor_shell)
     assert "--config-dir" in aistor_words or "MC_CONFIG_DIR" in aistor_shell

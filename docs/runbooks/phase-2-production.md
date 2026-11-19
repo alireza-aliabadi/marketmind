@@ -27,12 +27,17 @@ M3.2 and later work remain unimplemented. See ADR-0011 and the verification repo
 
 ## Explicit database setup
 
-- Back up first and review the reserved-schema bootstrap if the database is not
-  initialized. Existing conflicting ownership is a migration decision, not a reset.
+- Back up first and review the embedded setup/migrations. Existing conflicting
+  ownership is a migration decision, not a reset. TimescaleDB must be installed
+  and supported by the database server; the Go setup enables its extension.
 - Export only the reviewed `MARKET_MIGRATION_DATABASE_URL` or `_FILE` operator
-  setting and production mode. Run `make market-migrate`, then
-  `make market-runtime-init`. These are explicit operator commands, never worker
-  startup or AI tools. Migration 003 is additive; never rewrite versions 001/002.
+  setting and production mode. Run
+  `go -C services/market-data-service run ./cmd/market-data setup`
+  (`make market-setup` is optional). The Go binary reserves its own schema/owner,
+  applies embedded migrations and provisions the DML-only runtime group; no Bash/
+  psql initialization script is needed. This remains an explicit operator command,
+  never worker startup or an AI tool. Migration 003 is additive; never rewrite
+  versions 001/002. `migrate`/`runtime-init` remain optional lower-level commands.
 - Provision a runtime LOGIN via your managed database/secrets system, inheriting
   `mm_market_data_runtime` only, with no owner membership, superuser, BYPASSRLS,
   database/role administration or cross-service schema access. No LOGIN password
