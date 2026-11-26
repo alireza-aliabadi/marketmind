@@ -1,0 +1,23 @@
+{
+  "specversion": "1.0", "id": "ed08517f-0517-4192-957b-367629490001",
+  "source": "urn:marketmind:service:market-data-service", "type": "market.filings.raw.v1",
+  "time": "2024-03-01T00:00:01Z", "datacontenttype": "application/json",
+  "dataschema": "urn:marketmind:events:market.filings.raw:1.0.0", "correlationid": "synthetic-contract",
+  "data": {
+    "idempotency_key": "968aac2bf30f895aaa60bed2d7233a9a0019b56dedaa9f03ba31102e2bd55aa9",
+    "kind": "filings",
+    "snapshot": {
+      "company": {
+        "cik": "0000000001", "name": "SYNTHETIC Example Company",
+        "tickers": [], "exchange": [], "ein": "", "sic": "",
+        "metadata_source": {
+          "provider": "sec-edgar", "external_id": "SYNTHETIC",
+          "url": "https://sec-edgar.example/metadata.json", "retrieved_at": "2024-03-01T00:00:00Z",
+          "payload_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "license": {"classification": "synthetic-test-only", "permission_reference": "synthetic-fixture", "retention_allowed": true, "ai_allowed": false}
+        }
+      },
+      "filings": [], "history_complete": false
+    }
+  }
+}

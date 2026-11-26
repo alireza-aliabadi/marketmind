@@ -1,0 +1,56 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        exclude: '^frontend/web/pnpm-lock\.yaml$'
+      - id: check-yaml
+        alias: check-pnpm-lock-yaml
+        name: Check pnpm multi-document YAML lockfile
+        args: [--allow-multiple-documents]
+        files: '^frontend/web/pnpm-lock\.yaml$'
+      - id: check-json
+      - id: check-added-large-files
+
+  # Python: Ruff formatter & linter
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.9.6
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  # Local hooks understand the independent Go modules and frontend workspace.
+  - repo: local
+    hooks:
+      - id: go-fmt
+        name: Go formatter
+        entry: gofmt -w
+        language: system
+        types: [go]
+      - id: go-vet
+        name: Go format check and vet (all modules)
+        entry: make lint-go
+        language: system
+        pass_filenames: false
+        files: '^services/.+\.(go|mod|sum)$'
+      - id: frontend-check
+        name: Frontend lint and formatting
+        entry: make frontend-lint
+        language: system
+        pass_filenames: false
+        files: '^frontend/web/'
+      - id: contracts-check
+        name: API and event contracts
+        entry: make contracts-check
+        language: system
+        pass_filenames: false
+        files: '^contracts/'
+      - id: architecture-check
+        name: Service ownership and dependency boundaries
+        entry: make architecture-check
+        language: system
+        pass_filenames: false
+        files: '^(services/|src/|contracts/service-ownership\.json)'

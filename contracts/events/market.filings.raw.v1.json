@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:marketmind:events:market.filings.raw:1.0.0",
+  "title": "CompanyFilingMetadataRawV1",
+  "description": "Minimally normalized SEC submissions metadata; NOT downloaded filing-document bytes or claims.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["idempotency_key", "kind", "snapshot"],
+  "properties": {
+    "idempotency_key": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "kind": {"const": "filings"},
+    "snapshot": {
+      "type": "object", "additionalProperties": false,
+      "required": ["company", "filings", "history_complete"],
+      "properties": {
+        "history_complete": {"type": "boolean"},
+        "company": {
+          "type": "object", "additionalProperties": false,
+          "required": ["cik", "name", "tickers", "exchange", "ein", "sic", "metadata_source"],
+          "properties": {
+            "cik": {"type": "string", "pattern": "^[0-9]{10}$"},
+            "name": {"type": "string", "minLength": 1},
+            "tickers": {"type": ["array", "null"], "items": {"type": "string"}},
+            "exchange": {"type": ["array", "null"], "items": {"type": "string"}},
+            "ein": {"type": "string"}, "sic": {"type": "string"},
+            "metadata_source": {"$ref": "#/$defs/source"}
+          }
+        },
+        "filings": {
+          "type": "array",
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["cik", "accession_number", "form", "filing_date", "report_date", "acceptance_date_time", "primary_doc", "primary_doc_description", "document_url", "index_url", "published_at", "metadata_source"],
+            "properties": {
+              "cik": {"type": "string", "pattern": "^[0-9]{10}$"},
+              "accession_number": {"type": "string", "pattern": "^[0-9]{10}-[0-9]{2}-[0-9]{6}$"},
+              "form": {"type": "string", "minLength": 1},
+              "filing_date": {"type": "string", "format": "date"},
+              "report_date": {"anyOf": [{"const": ""}, {"type": "string", "format": "date"}]},
+              "acceptance_date_time": {"type": "string"},
+              "primary_doc": {"type": "string"}, "primary_doc_description": {"type": "string"},
+              "document_url": {"type": "string", "pattern": "^$|^https://"},
+              "index_url": {"type": "string", "format": "uri", "pattern": "^https://"},
+              "published_at": {"type": ["string", "null"], "format": "date-time", "pattern": "Z$"},
+              "metadata_source": {"$ref": "#/$defs/source"}
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "source": {
+      "type": "object", "additionalProperties": false,
+      "required": ["provider", "external_id", "url", "retrieved_at", "payload_sha256", "license"],
+      "properties": {
+        "provider": {"const": "sec-edgar"},
+        "external_id": {"type": "string", "minLength": 1, "maxLength": 1024},
+        "url": {"type": "string", "format": "uri", "pattern": "^https://", "maxLength": 2048},
+        "retrieved_at": {"type": "string", "format": "date-time", "pattern": "Z$"},
+        "payload_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "license": {
+          "type": "object", "additionalProperties": false,
+          "required": ["classification", "permission_reference", "retention_allowed", "ai_allowed"],
+          "properties": {
+            "classification": {"type": "string", "minLength": 1},
+            "permission_reference": {"type": "string", "minLength": 1},
+            "retention_allowed": {"const": true}, "ai_allowed": {"type": "boolean"}
+          }
+        }
+      }
+    }
+  }
+}

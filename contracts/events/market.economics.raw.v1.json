@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:marketmind:events:market.economics.raw:1.0.0",
+  "title": "EconomicSeriesRawV1",
+  "description": "Permission-gated FRED-native observations, units and vintages. Synthetic-only acceptance; no default AI-use grant.",
+  "type": "object", "additionalProperties": false,
+  "required": ["idempotency_key", "kind", "snapshot"],
+  "properties": {
+    "idempotency_key": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "kind": {"const": "economics"},
+    "snapshot": {
+      "type": "object", "additionalProperties": false,
+      "required": ["series", "observations", "vintage_date"],
+      "properties": {
+        "vintage_date": {"type": "string", "format": "date"},
+        "series": {
+          "type": "object", "additionalProperties": false,
+          "required": ["id", "name", "units", "frequency", "seasonal_adjustment", "notes", "metadata_source"],
+          "properties": {
+            "id": {"type": "string", "pattern": "^fred:[A-Za-z0-9._-]+$"},
+            "name": {"type": "string", "minLength": 1},
+            "units": {"type": "string", "minLength": 1},
+            "frequency": {"type": "string"}, "seasonal_adjustment": {"type": "string"},
+            "notes": {"type": "string"}, "metadata_source": {"$ref": "#/$defs/source"}
+          }
+        },
+        "observations": {
+          "type": "array",
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["date", "value", "realtime_start", "realtime_end", "metadata_source"],
+            "properties": {
+              "date": {"type": "string", "format": "date"},
+              "value": {"type": ["string", "null"], "maxLength": 128, "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?$"},
+              "realtime_start": {"type": "string", "format": "date"},
+              "realtime_end": {"type": "string", "format": "date"},
+              "metadata_source": {"$ref": "#/$defs/source"}
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "source": {
+      "type": "object", "additionalProperties": false,
+      "required": ["provider", "external_id", "url", "retrieved_at", "payload_sha256", "license"],
+      "properties": {
+        "provider": {"const": "fred"},
+        "external_id": {"type": "string", "minLength": 1, "maxLength": 1024},
+        "url": {"type": "string", "format": "uri", "pattern": "^https://", "maxLength": 2048},
+        "retrieved_at": {"type": "string", "format": "date-time", "pattern": "Z$"},
+        "payload_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "license": {
+          "type": "object", "additionalProperties": false,
+          "required": ["classification", "permission_reference", "retention_allowed", "ai_allowed"],
+          "properties": {
+            "classification": {"type": "string", "minLength": 1},
+            "permission_reference": {"type": "string", "minLength": 1},
+            "retention_allowed": {"const": true}, "ai_allowed": {"type": "boolean"}
+          }
+        }
+      }
+    }
+  }
+}

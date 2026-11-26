@@ -1,0 +1,12 @@
+{
+  "specversion": "1.0", "id": "ed08517f-0517-4192-957b-367629490004",
+  "source": "urn:marketmind:service:market-data-service", "type": "market.ingestion.dlq.v1",
+  "time": "2024-03-01T00:00:01Z", "datacontenttype": "application/json",
+  "dataschema": "urn:marketmind:events:market.ingestion.dlq:1.0.0", "correlationid": "synthetic-contract",
+  "data": {
+    "failure_id": "44deece2f8f4709c1789113279df4ebcef9e277a9db29631dd5fa87061c3d19d",
+    "original_topic": "market.filings.raw.v1", "original_key": "synthetic",
+    "original_base64": "e30=", "code": "invalid_event", "attempts": 1,
+    "failed_at": "2024-03-01T00:00:00Z"
+  }
+}

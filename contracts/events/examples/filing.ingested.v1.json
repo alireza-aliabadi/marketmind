@@ -1,0 +1,22 @@
+{
+  "specversion": "1.0",
+  "id": "b86d4d12-f795-4603-9d8b-28c384995207",
+  "source": "urn:marketmind:service:market-data-service",
+  "type": "filing.ingested.v1",
+  "time": "2026-11-12T06:00:02Z",
+  "datacontenttype": "application/json",
+  "dataschema": "urn:marketmind:events:filing.ingested:1.0.0",
+  "correlationid": "synthetic-contract-fixture",
+  "data": {
+    "provider": "sec-edgar",
+    "source_id": "0000000001-26-000001",
+    "source_url": "https://sec.example/filings/synthetic.txt",
+    "observed_at": "2026-11-12T06:00:00Z",
+    "published_at": "2026-11-11T16:00:00Z",
+    "artifact": {
+      "uri": "s3://marketmind-raw/raw/filings/synthetic.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "media_type": "text/plain"
+    }
+  }
+}

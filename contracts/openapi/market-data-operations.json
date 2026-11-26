@@ -1,0 +1,41 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Market Data Private Worker Operations",
+    "version": "1.0.0",
+    "description": "Private health and aggregate metrics only. Not a business/market-data API; network isolation is required."
+  },
+  "x-marketmind-service": "market-data-service",
+  "paths": {
+    "/health/live": {
+      "get": {
+        "operationId": "marketWorkerLiveness",
+        "responses": {
+          "200": {"description": "Worker process is alive", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Health"}}}}
+        }
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "operationId": "marketWorkerReadiness",
+        "responses": {
+          "200": {"description": "Configured dependencies and durability checks passed", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Health"}}}},
+          "503": {"description": "Startup, permissions or dependencies are not ready", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Health"}}}}
+        }
+      }
+    },
+    "/metrics": {
+      "get": {
+        "operationId": "marketWorkerAggregateMetrics",
+        "responses": {
+          "200": {"description": "Prometheus aggregate counters/gauges; no source bodies/identities/secrets", "content": {"text/plain": {"schema": {"type": "string"}}}}
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Health": {"type": "object", "additionalProperties": false, "required": ["status"], "properties": {"status": {"type": "string", "enum": ["alive", "ready", "not_ready"]}}}
+    }
+  }
+}

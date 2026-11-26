@@ -8,9 +8,9 @@
 - **Objective:** Advanced AI Engineer portfolio project
 - **Architecture:** Domain-Driven Microservices + Clean Architecture + Event-Driven Architecture
 - **Target plan:** 12 weeks
-- **Current phase:** Phase 0 — Planning / repository bootstrap
-- **Overall status:** Not started
-- **Last updated:** 2026-10-31
+- **Current phase:** Phase 2 production hardening locally verified; M3.2 remains unimplemented
+- **Overall status:** M2 production controls and M3.1 schema verified locally; live release blocked on provider/deployment/operational evidence
+- **Last updated:** 2026-11-17
 
 ### Status legend
 
@@ -25,14 +25,14 @@ Do not mark a task `[x]` until its acceptance criteria have been tested. Add a P
 
 ## Architecture decisions to preserve
 
-- [ ] **ADR-001:** Adopt DDD bounded contexts and independently deployable microservices.
-- [ ] **ADR-002:** Apply Clean/Hexagonal Architecture inside services; dependencies point inward.
-- [ ] **ADR-003:** Use Kafka for asynchronous integration; use HTTP/gRPC for suitable synchronous request-response operations.
-- [ ] **ADR-004:** Enforce service data ownership; no cross-service database writes.
-- [ ] **ADR-005:** Use PostgreSQL for transactional records, TimescaleDB for time-series, Neo4j for graph facts, Redis for ephemeral coordination, and S3-compatible object storage for permitted raw artifacts.
+- [x] **ADR-001:** Adopt DDD bounded contexts and independently deployable microservices.
+- [x] **ADR-002:** Apply Clean/Hexagonal Architecture inside services; dependencies point inward.
+- [x] **ADR-003:** Use Kafka for asynchronous integration; use HTTP/gRPC for suitable synchronous request-response operations. Recorded in ADR-0005.
+- [x] **ADR-004:** Enforce service data ownership; no cross-service database writes. Recorded in ADR-0006 and permission tests.
+- [x] **ADR-005:** Use PostgreSQL for transactional records, TimescaleDB for time-series, Neo4j for graph facts, Redis for ephemeral coordination, and S3-compatible object storage for permitted raw artifacts. M1.3 and ADR-0006.
 - [ ] **ADR-006:** Use LangChain for model/tool integrations and LangGraph for stateful research workflows.
 - [ ] **ADR-007:** Use Langfuse for LLM observability and LangSmith for workflow debugging/evaluation, with OpenTelemetry for cross-service telemetry.
-- [ ] **ADR-008:** Represent sourced/inferred relationships as temporal claims with provenance.
+- [x] **ADR-008:** Represent sourced/inferred relationships as temporal claims with provenance. Schema specification/ADR-0010 only; M3.2 ingestion remains unimplemented.
 - [ ] **ADR-009:** Keep deterministic financial calculations outside LLM reasoning.
 - [ ] **ADR-010:** No autonomous trade execution; reports are research and decision support.
 
@@ -42,22 +42,22 @@ Do not mark a task `[x]` until its acceptance criteria have been tested. Add a P
 
 **Goal:** Establish repository conventions and validate the development environment.
 
-- [ ] Create Git repository `marketmind-ai`.
-- [ ] Add README.md and PROGRESS.md.
-- [ ] Add root `.gitignore`.
-- [ ] Add `.env.example` with placeholders only.
-- [ ] Add Makefile with planned developer commands.
-- [ ] Add contribution and coding conventions.
-- [ ] Add ADR template and architecture decision directory.
-- [ ] Select and pin supported runtime versions.
-- [ ] Decide initial market-data provider and verify its licensing/coverage.
-- [ ] Define the first vertical-slice demo.
+- [x] Create Git repository `marketmind-ai`.
+- [x] Add README.md and PROGRESS.md.
+- [x] Add root `.gitignore`.
+- [x] Add `.env.example` with placeholders only.
+- [x] Add Makefile with planned developer commands.
+- [x] Add contribution and coding conventions.
+- [x] Add ADR template and architecture decision directory.
+- [x] Select and pin supported runtime versions.
+- [x] Decide initial market-data provider and verify its licensing/coverage.
+- [x] Define the first vertical-slice demo.
 
 **Exit criteria**
-- Clean checkout has documented setup instructions.
-- No secrets are committed.
-- Runtime and dependency versions are pinned.
-- First vertical slice is scoped.
+- [x] Clean checkout has documented setup instructions.
+- [x] No secrets are committed.
+- [x] Runtime and dependency versions are pinned.
+- [x] First vertical slice is scoped.
 
 ---
 
@@ -65,96 +65,124 @@ Do not mark a task `[x]` until its acceptance criteria have been tested. Add a P
 
 ### M1.1 — Monorepo and service templates
 
-- [ ] Create service directory structure.
-- [ ] Add Go service template.
-- [ ] Add Python service template.
-- [ ] Add React + TypeScript frontend scaffold.
-- [ ] Configure formatters, linters, and pre-commit checks.
-- [ ] Add CI build and unit-test workflows.
+Evidence: [Phase 1 verification report](docs/reports/phase-1-verification.md).
+
+- [x] Create service directory structure.
+- [x] Add Go service template.
+- [x] Add Python service template.
+- [x] Add React + TypeScript frontend scaffold.
+- [x] Configure formatters, linters, and pre-commit checks.
+- [x] Add CI build and unit-test workflows.
 
 ### M1.2 — API gateway and identity
 
-- [ ] Implement Go API gateway.
-- [ ] Add health/readiness endpoints.
-- [ ] Add request ID and correlation ID middleware.
-- [ ] Add OIDC/OAuth2 integration.
-- [ ] Define organization and user model.
-- [ ] Implement role/permission checks.
-- [ ] Add tenant-isolation tests.
+Evidence: [Phase 1 verification report](docs/reports/phase-1-verification.md) and
+[ADR-0007](docs/architect/ADR-0007-oidc-identity-foundation.md).
+
+- [x] Implement Go API gateway.
+- [x] Add health/readiness endpoints.
+- [x] Add request ID and correlation ID middleware.
+- [x] Add OIDC/OAuth2 integration. Configured-issuer discovery, RS256 JWKS, API audience/time/tenant checks and key rotation; no HS256 runtime fallback.
+- [x] Define organization and user model. Identity-service domain models include organization-scoped memberships and active/inactive invariants; persistence/CRUD remain later work.
+- [x] Implement role/permission checks. Enforced on registered sample, market and research proxy routes with method-specific action policies.
+- [x] Add tenant-isolation tests.
 
 ### M1.3 — Local infrastructure
 
-- [ ] Add Docker Compose for PostgreSQL.
-- [ ] Add TimescaleDB extension configuration.
-- [ ] Add Neo4j.
-- [ ] Add Kafka in KRaft mode.
-- [ ] Add Redis.
-- [ ] Add S3-compatible object storage.
-- [ ] Add persistent volumes and health checks.
-- [ ] Add startup/readiness verification.
+- [x] Add Docker Compose for PostgreSQL.
+- [x] Add TimescaleDB extension configuration.
+- [x] Add Neo4j.
+- [x] Add Kafka in KRaft mode.
+- [x] Add Redis.
+- [x] Add S3-compatible object storage.
+- [x] Add persistent volumes and health checks.
+- [x] Add startup/readiness verification.
 
 ### M1.4 — Contracts and architecture governance
 
-- [ ] Add OpenAPI contract conventions.
-- [ ] Add Kafka event envelope and schema versioning.
-- [ ] Define service ownership matrix.
-- [ ] Document synchronous vs asynchronous communication rules.
-- [ ] Add ADRs for architecture decisions.
-- [ ] Verify no cross-service database access.
+- [x] Add OpenAPI contract conventions.
+- [x] Add Kafka event envelope and schema versioning.
+- [x] Define service ownership matrix.
+- [x] Document synchronous vs asynchronous communication rules.
+- [x] Add ADRs for architecture decisions.
+- [x] Verify no cross-service database access. Static boundaries and isolated PostgreSQL owner-role tests; runtime app credentials remain planned.
 
 **Phase 1 exit criteria**
-- [ ] Local infrastructure starts successfully from a clean checkout.
-- [ ] Gateway reaches a sample service.
-- [ ] Authentication and tenant authorization have automated tests.
-- [ ] Event contracts validate in CI.
+- [x] Local infrastructure starts successfully from a clean checkout.
+- [x] Gateway reaches a sample service. Real compiled Go → FastAPI health flow passes `make gateway-test`.
+- [x] Authentication and tenant authorization have automated tests. OIDC/JWKS, registered-route permissions, missing/invalid claims, header spoofing and cross-organization denials are covered.
+- [-] Event contracts validate in CI. Gates and negative/base-revision checks pass locally; observing remote CI requires committing/pushing these changes.
+
+Local acceptance evidence: [Phase 1 verification report](docs/reports/phase-1-verification.md).
+Phase 1 is implemented locally, not yet fully signed off against the remote-CI
+exit criterion. This is not a claim of identity CRUD, ingestion or production IAM.
 
 ---
 
 ## Phase 2 — Market data and ingestion (Weeks 3–4)
 
+**Future production profile:** secure transport, non-owner DML role, shared
+throttling/journal, supervised workers, retry integrity, retention redaction and
+actual TLS/restore/image checks are implemented for private managed ingestion.
+[Verification](docs/reports/phase-2-production-hardening.md) records passed local
+checks. The user has no live access yet; providers remain disabled. **Live release
+is blocked** on rights/accounts, actual managed deployment/ACL/failover, retention/
+revocation, off-cluster RPO/RTO, capacity/monitoring and remote acceptance. See the
+[runbook](docs/runbooks/phase-2-production.md). M3.2/AI remain unimplemented.
+
 ### M2.1 — Provider abstraction and SEC integration
 
-- [ ] Define provider port/interface.
-- [ ] Implement Go provider adapter structure.
-- [ ] Integrate SEC EDGAR submissions.
-- [ ] Retrieve company identifiers and filing metadata.
-- [ ] Preserve provider IDs, source URLs, and timestamps.
-- [ ] Respect SEC access requirements and User-Agent policy.
+Evidence: [Through-M3.1 verification report](docs/reports/through-m3.1-verification.md).
+
+- [x] Define provider port/interface.
+- [x] Implement Go provider adapter structure. Continued the existing user implementation in place.
+- [x] Integrate SEC EDGAR submissions. Actual adapter HTTP flow verified against synthetic loopback responses.
+- [x] Retrieve company identifiers and filing metadata. Bounded optional history; no filing-document download claimed.
+- [x] Preserve provider IDs, source URLs, and timestamps.
+- [x] Respect SEC access requirements and User-Agent policy. Process-wide conservative pacing, contact header, bounded requests/retries.
 
 ### M2.2 — Economic and market data
 
-- [ ] Integrate FRED API.
-- [ ] Select and integrate a market-price provider.
-- [ ] Document data coverage and licensing.
-- [ ] Normalize currency, exchange, instrument, and timestamps.
-- [ ] Model delayed vs real-time data explicitly.
-- [ ] Model corporate-action and adjusted-price semantics.
+Evidence: [Through-M3.1 verification report](docs/reports/through-m3.1-verification.md)
+and [ADR-0008](docs/architect/ADR-0008-provider-permissions-and-price-semantics.md).
+
+- [x] Integrate FRED API. Synthetic HTTP acceptance; live use fails closed without reviewed written permission and a series allowlist.
+- [x] Select and integrate a market-price provider. Massive (formerly Polygon), Stocks Developer semantics; no account/plan purchase claimed.
+- [x] Document data coverage and licensing. Current terms supersede the blanket public-domain assumptions in ADR-0003.
+- [x] Normalize currency, exchange, instrument, and timestamps.
+- [x] Model delayed vs real-time data explicitly.
+- [x] Model corporate-action and adjusted-price semantics. Split-adjusted excludes dividends; corporate-action records are modeled, not downloaded or applied.
 
 ### M2.3 — Kafka ingestion
 
-- [ ] Create versioned raw topics.
-- [ ] Implement ingestion event envelope.
-- [ ] Add idempotency keys.
-- [ ] Add retries with bounded backoff.
-- [ ] Add dead-letter topic and replay procedure.
-- [ ] Implement outbox pattern where database publication requires atomicity.
-- [ ] Test duplicate and out-of-order events.
+Evidence: [Through-M3.1 verification report](docs/reports/through-m3.1-verification.md)
+and [ADR-0009](docs/architect/ADR-0009-durable-snapshot-ingestion.md).
+
+- [x] Create versioned raw topics. Explicit provisioning; three minimally normalized snapshot topics plus DLQ, verified on private Kafka.
+- [x] Implement ingestion event envelope. Existing immutable CloudEvents envelope reused; new closed payload contracts.
+- [x] Add idempotency keys. Native identity/content/normalized payload, excluding retrieval-only changes.
+- [x] Add retries with bounded backoff.
+- [x] Add dead-letter topic and replay procedure. Original bytes, stage-specific failures, explicit validated/audited replay.
+- [x] Implement outbox pattern where database publication requires atomicity. Locked pending relay and transactional receipt/outbox; at-least-once, not distributed exactly-once.
+- [x] Test duplicate and out-of-order events. Actual Kafka replay and newer-before-older PostgreSQL fixtures.
 
 ### M2.4 — Persistence and data quality
 
-- [ ] Add PostgreSQL migrations.
-- [ ] Add TimescaleDB hypertable and indexes.
-- [ ] Add data source registry.
-- [ ] Add validation and freshness metadata.
-- [ ] Add ingestion status and error records.
-- [ ] Add integration tests with Testcontainers.
+Evidence: [Through-M3.1 verification report](docs/reports/through-m3.1-verification.md).
+
+- [x] Add PostgreSQL migrations. Explicit, additive, owner-scoped and checksum-verified; no development-volume migration performed.
+- [x] Add TimescaleDB hypertable and indexes.
+- [x] Add data source registry. Provider/native IDs, URLs/hashes, rights and source versions.
+- [x] Add validation and freshness metadata. Exact NUMERIC, null missing values, observation/check times and quality records.
+- [x] Add ingestion status and error records. Queued/applied/parked delivery/processing records; pre-enqueue provider errors remain CLI failures.
+- [x] Add integration tests with Testcontainers. Actual compiled CLI, PostgreSQL/TimescaleDB and Kafka, with isolated synthetic data.
 
 **Phase 2 exit criteria**
-- [ ] At least one company/filing pipeline runs end to end.
-- [ ] At least one economic or market time-series pipeline runs end to end.
-- [ ] Duplicate replay is idempotent.
-- [ ] Source provenance and freshness are queryable.
-- [ ] Provider licensing assumptions are documented.
+- [x] At least one company/filing pipeline runs end to end. SEC submissions/filing metadata through real runtime components, synthetic HTTP source; not document acquisition.
+- [x] At least one economic or market time-series pipeline runs end to end. Synthetic FRED observations and Massive split-adjusted/unadjusted bars.
+- [x] Duplicate replay is idempotent.
+- [x] Source provenance and freshness are queryable.
+- [x] Provider licensing assumptions are documented. Live FRED/Massive grants/accounts/coverage remain unverified and permission-gated.
 
 ---
 
@@ -162,11 +190,19 @@ Do not mark a task `[x]` until its acceptance criteria have been tested. Add a P
 
 ### M3.1 — Graph schema
 
-- [ ] Define canonical Company and Instrument identities.
-- [ ] Define MarketEvent, Sector, Industry, Product, Source, and Claim nodes.
-- [ ] Define typed relationships and direction semantics.
-- [ ] Add Neo4j uniqueness constraints and indexes.
-- [ ] Document graph schema and migration/versioning strategy.
+Evidence: [Through-M3.1 verification report](docs/reports/through-m3.1-verification.md),
+[schema v1](docs/data-model/graph-schema.md), [ADR-0010](docs/architect/ADR-0010-graph-schema-and-scope.md),
+and [native setup decision](docs/architect/ADR-0012-native-setup.md).
+
+- [x] Define canonical Company and Instrument identities. Padded CIK/share-class FIGI; no name/ticker resolution workflow.
+- [x] Define MarketEvent, Sector, Industry, Product, Source, and Claim nodes. Schema specification only, not a claim domain model/ingester.
+- [x] Define typed relationships and direction semantics.
+- [x] Add Neo4j uniqueness constraints and indexes. Ten business uniqueness constraints/nine explicit range indexes; legacy bookkeeping is preserved but no longer created. Community does not enforce presence, time or tenant visibility.
+- [x] Document graph schema and evolution/setup strategy. Idempotent Python DDL, resumable setup and reserved-name conflict checks; breaking/data changes require an explicit operator plan, not automatic reset.
+
+**Requested stop:** M3.2 and all later AI/retrieval work remain unchecked and
+unimplemented. See [manual AI requirements and acceptance criteria](docs/requirements/ai-manual-handoff.md)
+for a code-free handoff. Schema setup seeds no business graph knowledge.
 
 ### M3.2 — Claim and relationship ingestion
 
@@ -373,9 +409,11 @@ Targets are engineering goals, not achieved metrics. Record actual results, data
 
 ## Current blockers / decisions
 
-- [ ] Choose initial licensed market-data provider and plan.
+- [!] Observe a successful remote Phase 1 CI run against these changes. No commit/push was requested or performed.
+- [x] Choose initial provider adapters/price-plan semantics (SEC EDGAR, FRED, Massive/Polygon; ADR-0008 supersedes ADR-0003 blanket licensing assumptions; no Yahoo fallback or purchased entitlement).
+- [!] Verify live source permissions/accounts/coverage. FRED retention/AI development requires written permission; Massive public/multi-tenant/AI use requires separate contract review. Synthetic acceptance is not a live-data grant.
 - [ ] Choose initial LLM provider/model and embedding model.
-- [ ] Decide whether graph data is global, tenant-specific, or a combination.
+- [x] Decide whether graph data is global, tenant-specific, or a combination. ADR-0010: public canonical catalog plus scoped private evidence/claims; later authorization remains unimplemented.
 - [ ] Decide initial news provider and permitted content retention.
 - [ ] Confirm deployment target and budget.
 - [ ] Define benchmark universe and manually reviewed ground truth.
@@ -385,6 +423,242 @@ Targets are engineering goals, not achieved metrics. Record actual results, data
 ## Engineering log
 
 Append entries newest-first.
+
+### 2026-11-19 — Native Python/Go setup without Bash requirements
+
+- Replaced graph migration files/version/checksum nodes with `ensure_schema(driver)`
+  in Python. Preserved ten business uniqueness constraints, nine explicit indexes,
+  conflict checks, readiness and retry safety. Old bookkeeping/data is not deleted.
+- Installed the existing Python packages normally and added `marketmind-api`,
+  `graph-setup` and `python -m` entry points. Removed `PYTHONPATH`/`MYPYPATH` setup
+  workarounds. API binds to loopback by default; Make is an optional convenience.
+- Added Go `market-data setup` for its own NOLOGIN owner/schema, installed TimescaleDB
+  extension, embedded SQL migrations and DML-only runtime group. SQL migration
+  hashes, explicit operator/runtime secrets, verified TLS, source grants, shared
+  quotas, bounded retries and worker limits remain. No LOGIN/password is invented.
+- Removed the two project Bash infrastructure scripts and duplicate startup probes.
+  Compose handles startup readiness; native Python retains optional authenticated
+  checks and isolated five-store persistence/cleanup verification.
+- Python image uses frozen dependencies, a cached dependency layer, compiled
+  bytecode, non-root execution and a runtime-only build-context whitelist.
+- Default verification: `uv run --frozen pytest` **154 passed, 63 opt-in skipped**;
+  Ruff lint passed; strict mypy passed for 25 sources. `make lint-go build-go
+  contracts-check architecture-check` and all three modules' `-race -count=1`
+  tests passed. Existing graph-domain edits/comments were preserved.
+- Actual disposable runtime verification: `RUN_GRAPH_SCHEMA_TESTS=1 uv run
+  --frozen pytest -s tests/test_graph_schema.py` **5 passed**, including the native
+  installed CLI outside the checkout; `RUN_MARKET_RUNTIME_TESTS=1 uv run --frozen
+  pytest -s tests/test_ingestion_runtime.py` **5 passed**, including native setup
+  without initialization SQL, DML/elevation denials, retry integrity and full
+  Timescale restore. The foreign-role fixture was explicitly test-owned rather
+  than widening the service's setup scope.
+- `RUN_MARKET_SECURE_TESTS=1 uv run --frozen pytest -s
+  tests/test_phase2_secure_transport.py` **2 passed**: verified-TLS native SQL setup,
+  TLS/SASL Kafka, bad credentials/CA, TLS downgrade and weak durability denials.
+  The race-enabled real gateway → native Python API scenario also passed OIDC,
+  tenant/RBAC, response contracts, upstream failure and graceful shutdown.
+- `uv run --frozen python -m infra test` passed actual PostgreSQL/TimescaleDB,
+  Redis, Kafka, Neo4j and AIStor persistence across recreation and owned cleanup.
+  One-off `/tmp/opencode/marketmind-native-image-verify.py` built the root Python
+  image and verified non-editable packages outside source, native CLI credential
+  failure, non-root/read-only operation and loopback HTTP 200 with resource limits;
+  its container/image tag were removed.
+- Follow-up schema typing: reproduced three Neo4j `LiteralString` diagnostics and
+  fixed them with literal-typed identifiers and static SHOW prefixes, without casts
+  or ignored warnings. Pyright reported zero errors; Ruff/mypy, 19 targeted tests
+  and five real Neo4j schema tests passed with query behavior unchanged.
+- User-authorized commit preparation preserved identity comment text while fixing
+  its whitespace. Full `make check` now passes Python lint/format/type checks,
+  contracts/architecture, 154 Python tests (63 opt-in skipped), all Go modules'
+  tests/builds/vet, and frontend lint/format/type/build. `git diff --check` passes.
+  One existing Starlette/httpx deprecation warning remains. The full all-service
+  ownership suite and remote CI were not rerun; no development data migration or
+  live provider use. Git publication was separately requested after verification.
+- Decision and native commands: [ADR-0012](docs/architect/ADR-0012-native-setup.md),
+  [local development](README.md#15-local-development) and the service READMEs.
+
+### 2026-11-18 — Simplified relationship specification
+
+- Removed the unused `RelationshipRule`/`RELATIONSHIPS` label-compatibility table
+  and its self-referential test. It duplicated the documented direction table and
+  was not used by any runtime code. `RelationshipType` remains the shared vocabulary.
+- Relationship endpoints stay writer requirements: M3.2 must validate them in
+  reviewed, parameterized Cypher because Neo4j Community DDL cannot enforce them.
+- Validation: Ruff check, strict mypy (8 graph sources), architecture check and full
+  pytest (135 passed, 62 opt-in store/graph checks skipped).
+
+### 2026-11-17 — Continued user implementation through M3.1; explicit AI stop
+
+- Backed up and completed the user's untracked market-data Go module/models/port/
+  unfinished SEC adapter in place. Preserved original names/fields/structure and
+  all unrelated work, credentials, licenses and development data.
+- Verified M2.1 and M2.2 separately with race-enabled real adapter HTTP fixtures:
+  SEC history/access/provenance, FRED pagination/vintages/missing values, Massive
+  identities/delay/split semantics and exact decimals. Reviewed current provider
+  terms; added permission gates and corrected blanket public-domain assumptions.
+- Verified M2.3/M2.4 with actual compiled CLI, Kafka, PostgreSQL/TimescaleDB through
+  private Testcontainers. Proved transactional outbox/application rollback, bounded
+  transport/processing failure, original-byte DLQs, explicit audited replay,
+  duplicates, out-of-order correction protection, freshness and runtime isolation.
+- Diagnosed test-only tmpfs option/capacity errors and a failed-publication test
+  that mistook a pending DLQ for raw data. Corrected recovery expectations and kept
+  transport/processing failure histories distinct; subsequent runtime tests passed.
+- Verified M3.1 on actual Neo4j Community: canonical/scoped IDs, eleven uniqueness
+  constraints, online indexes, additive replay, preservation of unrelated probe
+  data, checksum immutability and reserved-name conflict failure. No graph ingest,
+  claim domain model, entity resolution, temporal retrieval or AI was implemented.
+- `make check` passed Ruff, strict mypy (21 sources), architecture/contracts,
+  136 Python tests (56 opt-in store checks skipped), all three Go modules and
+  frontend build. `make market-data-test` passed both race-enabled milestones;
+  `make graph-schema-test` passed five checks; `make gateway-test ownership-test`
+  passed real OIDC proxy regressions and all 51 SQL ownership checks.
+- Recorded [evidence](docs/reports/through-m3.1-verification.md) and a
+  [requirements/acceptance-only manual AI handoff](docs/requirements/ai-manual-handoff.md).
+  M3.2+ stays unchecked. No live provider acceptance, commit, push or remote CI.
+- Final all-module race repeats, frozen Python sync, Go checksum verification,
+  base-HEAD contract immutability, changed/new-file pre-commit hooks and whitespace
+  checks passed. Private test-container cleanup was observed. CI includes the new
+  integration commands, but remote execution remains unobserved.
+
+### 2026-11-14 - Phase 1 gap closure and acceptance verification
+
+- Audited the previous status against code: HS256-only authentication, missing
+  organization/membership models, unenforced proxy permissions and absent sample
+  integration were genuine M1.2 gaps. Frontend lint also failed because its ESLint
+  command had no installed/configured linter, and frontend CI was absent.
+- Added configured-issuer OIDC discovery and rotating RS256 JWKS verification,
+  API audience/issuer/signature/time/subject/tenant checks, OAuth2 action scopes,
+  bounded provider calls and fail-closed configuration/startup. Removed the
+  executable's default JWT secret; the legacy HS256 adapter is test-only.
+- Added identity-service organization/user/membership domain models, with external
+  identity keyed by issuer/subject, per-organization roles and inactive/mismatched
+  membership denials. No database registry or provisioning API is claimed.
+- Applied action/method guards to all registered proxy routes. Added explicit
+  sample-health routing, prefix stripping, trusted identity/header replacement,
+  generated tracing propagation, credential stripping and JSON failure responses.
+  Updated the gateway OpenAPI contract and added ADR-0007/setup documentation.
+- Added scoped READMEs so previously empty planned service directories survive
+  checkouts when committed.
+  Added both Go modules to build/test/format/vet/race gates, pinned current OIDC/Go
+  dependencies, and repaired frontend lint/format/build with pinned Oxlint and
+  Prettier. CI now includes real gateway integration and frontend jobs.
+- Verified pre-commit hooks, including strict YAML checks plus safe multi-document
+  parsing specifically for pnpm 12's lockfile. Normalized baseline formatting/end
+  newlines without changing editor settings or unrelated behavior. Diagnosed and
+  fixed test-only Uvicorn shutdown expectations and issuer-startup publication race;
+  repeated race-enabled runtime scenarios subsequently passed.
+- Validation: `make check` passed Ruff lint/format, strict mypy, architecture and
+  contract gates, 134 Python tests (51 opt-in DB tests skipped), both Go modules and
+  frontend builds. Both Go modules passed race tests; `make gateway-test` and two
+  race-enabled repeats passed real routing, OIDC rotation, 200/401/403/405/502 wire
+  contracts, tenant/RBAC denials, downstream outage and shutdown/startup failure.
+- Validation: all 51 actual PostgreSQL owner/schema checks passed separately, and
+  fresh isolated startup/recreation/persistence passed for all five stores. Event
+  immutability checks against `HEAD`, Go module checksums, frozen frontend install
+  and frontend checks with the pinned Node 22.12.0 runtime passed. The existing
+  Starlette/httpx deprecation warning remains. See the linked verification report.
+- Repeated the frozen Python install/tests and frontend install/lint/format/build
+  in fresh disposable dependency environments; all passed without replacing the
+  development environments.
+- Preserved existing uncommitted work, development data, credentials and license.
+  No commit, push or remote workflow was performed; the CI exit flag stays pending.
+
+### 2026-11-12 - M1.3 verification and M1.4 contract governance
+
+- Fresh M1.3 readiness and isolated recreation/persistence checks passed for all
+  five stores, including a TimescaleDB hypertable, Kafka message, and S3 artifact.
+- Added self-contained OpenAPI 3.1 contracts for implemented Go/Python health APIs,
+  producer-response conformance tests, and response/path/status drift checks.
+  Future business APIs and OIDC are not falsely described as implemented.
+- Added versioned CloudEvents/payload schemas, a contract-only filing event,
+  synthetic fixtures, owner/version matching, offline-reference checks, temporal
+  validation, and base-revision immutability checks for schemas/event bindings.
+- Added a machine-readable service ownership matrix, negative Python/Go import
+  fixtures, communication/data-ownership ADRs, and reserved NOLOGIN schema owners.
+- Actual PostgreSQL tests verified seven owners, 42 directed cross-owner table
+  denials, role privilege limits, and schema-USAGE isolation in a private project.
+  Existing development data/credentials were not migrated or overwritten.
+- Added `make contracts-check`, `make architecture-check`, `make ownership-test`,
+  opt-in `make ownership-init`, and CI gates using frozen dependencies. SQL tests
+  require Docker but no AIStor license; runtime LOGIN accounts/IAM remain planned.
+- Validation: `make check` passed Ruff, strict mypy, 133 Python tests and native Go
+  tests; 51 opt-in DB checks passed separately. Local base-ref contract checks,
+  YAML validation, and M1.3 persistence checks passed. The existing Starlette/httpx
+  warning remains; remote CI has not been run because no commit/push was requested.
+- Corrected premature M1.2 completion flags: OIDC, organization modeling, actual
+  proxy-route authorization, and gateway-to-sample integration still need work.
+
+### 2026-11-11 - M1.3 follow-up: Portable Compose overrides
+
+- Replaced custom reset tags in `infra/compose.test.yml` with standard YAML.
+- Moved development-only host bindings into `compose.override.yml`; shared
+  services remain port-free, and the Makefile explicitly loads both development
+  files. Removed the special unsafe YAML-validation exception.
+- Added four configuration-merge regressions covering the shared base, isolated
+  tests, explicit development files, and automatic development override loading.
+- Validation: strict YAML checks, `make check` (76 Python tests and Go tests), and
+  isolated startup/persistence verification passed. Existing development services
+  and their host ports were not restarted or modified.
+
+### 2026-11-11 - M1.3: Local infrastructure and verification
+
+- Completed the existing Compose work with PostgreSQL 18 / TimescaleDB 2.31.0,
+  pinned Redis, Kafka, Neo4j, and AIStor images, health checks, bounded logs,
+  localhost port bindings, and persistent named volumes.
+- Added explicit TimescaleDB initialization and corrected the PostgreSQL 18
+  data-volume layout. Kafka broker logs and KRaft metadata use sibling directories
+  within the same persistent volume; Redis enables AOF persistence.
+- Added `make infra-config`, readiness-gated `make infra-up`, `make infra-check`,
+  isolated `make infra-test`, logs, and optional Kafka UI on port 8081.
+- Added 62 fake-Docker regression cases for readiness, authentication-probe
+  failures, forwarded Compose options, persistence-probe exit propagation, and
+  test cleanup isolation. No business data is seeded in development databases.
+- Documented the valid, untracked AIStor license prerequisite, local credential
+  mapping, host/container addresses, persistence verification, and migration limits.
+- Validation: normal `make infra-up` and authenticated readiness checks passed;
+  isolated clean startup and persistence across container recreation passed for all
+  five stores, including a synthetic TimescaleDB hypertable and a Kafka message.
+- Validation: `make check` passed Ruff, strict mypy, 72 Python tests, and Go tests.
+  Shell syntax and the configured YAML hooks passed. One existing Starlette/httpx
+  deprecation warning remains. A transient Docker Hub pull reset was resolved by
+  retrying; temporary test resources were cleaned up, and development services
+  remain running and healthy.
+
+### 2026-11-10 — M1.1 & M1.2: Monorepo Foundation & Go API Gateway Implementation
+
+- Completed **M1.1 (Monorepo and service templates)**:
+  - Created service directories (`services/api-gateway`, `services/identity-service`, `services/market-data-service`, `services/alert-service`, `services/event-intelligence`, `services/knowledge-graph-service`, `services/ai-orchestrator`, `services/quantitative-service`).
+  - Added Go and Python service templates.
+  - Added React + TypeScript frontend scaffold in `frontend/web/`.
+  - Configured linters, formatters, and `.pre-commit-config.yml`.
+  - Added GitHub Actions CI pipeline in `.github/workflows/ci.yml`.
+- Completed **M1.2 (API Gateway and Identity)**:
+  - Implemented Go API Gateway with reverse proxy routing in `services/api-gateway/cmd/server/main.go`.
+  - Implemented health check routes (`/health`, `/health/live`, `/health/ready`).
+  - Implemented `TracingMiddleware` for `X-Request-ID` and `X-Correlation-ID`.
+  - Implemented standard library JWT HMAC-SHA256 verifier in `internal/infrastructure/auth/jwt_verifier.go`.
+  - Defined tenant and user identity domain model in `internal/domain/identity/models.go` (`UserClaims`, `Role`, `TenantID`, `Permissions`).
+  - Implemented `AuthenticateMiddleware` and `RequireRole` RBAC guards in `internal/presentation/http/auth_middleware.go`.
+  - Added comprehensive automated unit and tenant-isolation test suite in `internal/presentation/http/auth_middleware_test.go` (cross-tenant access returns 403 Forbidden, expired/missing tokens return 401, valid claims propagate `X-Tenant-ID` and `X-User-ID`).
+  - Verified `make check` passes 100% across all Python and Go test suites.
+
+### 2026-11-07 — Phase 0 bootstrap and baseline service implementation
+
+- Created sanitized `.env.example` placeholder file.
+- Fixed `Makefile` syntax (replaced spaces with tabs, fixed `.PHONY`), added developer workflow targets (`make help`, `infra-up`, `infra-down`, `api`, `run`, `test`, `lint`, `format`, `check`).
+- Added version-pinning files (`.python-version`, `.tool-versions`).
+- Created ADR template (`docs/architect/template.md`) and added `docs/adr` compatibility symlink.
+- Added `docs/architect/ADR-0003-initial-market-data-provider.md` (SEC EDGAR, FRED, Polygon/Yahoo Finance fallback).
+- Added `docs/architect/ADR-0004-first-vertical-slice.md` (NVIDIA semiconductor supply chain and gross margin trajectory slice).
+- Created `CONTRIBUTING.md` documenting DDD and Clean Architecture invariants, local setup, commit conventions, and DoD.
+- Implemented Python Clean Architecture baseline service template:
+  - `src/domain/health/` (pure Python health models, `HealthStatus` StrEnum, `SystemHealth`, `ComponentHealth`)
+  - `src/application/health/` (`HealthCheckPort` protocol, `HealthCheckUseCase`)
+  - `src/infra/health/` (`SystemHealthChecker` adapter implementing `HealthCheckPort`)
+  - `src/shared/` (`config.py` using `pydantic-settings`, `logging.py` using `structlog`)
+  - `src/presentation/http/` (FastAPI app factory `create_app()`, `RequestTracingMiddleware` with `X-Request-ID` / `X-Correlation-ID`, and health routes: `/health`, `/health/live`, `/health/ready`)
+- Added comprehensive unit and integration tests in `tests/test_health.py` and `tests/conftest.py`.
+- Verified `make check` passes cleanly (100% test pass rate with 6 tests, ruff format/lint clean, strict mypy typing passed).
 
 ### 2026-10-31 — Initial architecture and roadmap
 

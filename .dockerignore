@@ -1,0 +1,16 @@
+# Send only the Python runtime/build inputs, never local credentials or caches.
+*
+!pyproject.toml
+!uv.lock
+!src/
+!src/**
+!services/
+!services/knowledge-graph-service/
+!services/knowledge-graph-service/knowledge_graph_service/
+!services/knowledge-graph-service/knowledge_graph_service/**
+**/.env*
+**/*.license
+**/*.key
+**/*.pem
+**/__pycache__/
+**/*.pyc

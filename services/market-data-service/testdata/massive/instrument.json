@@ -1,0 +1,12 @@
+{
+  "status": "OK",
+  "results": {
+    "ticker": "TEST",
+    "name": "SYNTHETIC common stock; not a provider record",
+    "currency_name": "usd",
+    "primary_exchange": "XNAS",
+    "share_class_figi": "BBG000000001",
+    "cik": "1045810",
+    "list_date": "2020-01-01"
+  }
+}

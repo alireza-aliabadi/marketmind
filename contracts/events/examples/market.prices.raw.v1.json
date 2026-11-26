@@ -1,0 +1,24 @@
+{
+  "specversion": "1.0", "id": "ed08517f-0517-4192-957b-367629490003",
+  "source": "urn:marketmind:service:market-data-service", "type": "market.prices.raw.v1",
+  "time": "2024-03-01T00:00:01Z", "datacontenttype": "application/json",
+  "dataschema": "urn:marketmind:events:market.prices.raw:1.0.0", "correlationid": "synthetic-contract",
+  "data": {
+    "idempotency_key": "70a72609b56b3eba89588c5ee12c2eeffe8233f93a27056d7ccdce7db34d9b59",
+    "kind": "prices",
+    "snapshot": {
+      "instrument": {
+        "id": "figi:BBG000000001", "company_id": "cik:0000000001", "ticker": "TEST",
+        "exchange": "XNAS", "currency": "USD", "name": "SYNTHETIC stock",
+        "list_date": "2020-01-01", "as_of_date": "2024-01-02",
+        "metadata_source": {
+          "provider": "massive", "external_id": "SYNTHETIC",
+          "url": "https://massive.example/metadata.json", "retrieved_at": "2024-03-01T00:00:00Z",
+          "payload_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "license": {"classification": "synthetic-test-only", "permission_reference": "synthetic-fixture", "retention_allowed": true, "ai_allowed": false}
+        }
+      },
+      "bars": []
+    }
+  }
+}

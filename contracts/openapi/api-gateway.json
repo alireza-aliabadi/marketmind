@@ -1,0 +1,173 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "MarketMind Gateway Platform API",
+    "version": "0.2.0",
+    "description": "Public process health and OIDC/OAuth2-protected Python sample health routing. Bearer access tokens require the configured issuer, API audience, RS256 JWKS signature, expiry, subject and tenant_id. Research/market prefixes have enforced method-specific permissions but delegate to downstream APIs that are not yet implemented. Identity CRUD and browser login are not implemented."
+  },
+  "x-marketmind-service": "api-gateway",
+  "servers": [{"url": "http://localhost:8080", "description": "Local development"}],
+  "security": [],
+  "x-marketmind-proxy-policies": [
+    {"prefix": "/api/v1/market", "methods": {"GET": "market:read", "HEAD": "market:read"}, "status": "delegation-only"},
+    {"prefix": "/api/v1/research", "methods": {"GET": "research:read", "HEAD": "research:read", "POST": "research:write"}, "status": "delegation-only"}
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "gatewayHealth",
+        "summary": "Health overview; always returns 200 with the aggregate status",
+        "parameters": [{"$ref": "#/components/parameters/RequestId"}, {"$ref": "#/components/parameters/CorrelationId"}],
+        "responses": {"200": {"$ref": "#/components/responses/Overview"}}
+      }
+    },
+    "/health/live": {
+      "get": {
+        "operationId": "gatewayLiveness",
+        "summary": "Process liveness",
+        "parameters": [{"$ref": "#/components/parameters/RequestId"}, {"$ref": "#/components/parameters/CorrelationId"}],
+        "responses": {"200": {"$ref": "#/components/responses/Liveness"}}
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "operationId": "gatewayReadiness",
+        "summary": "Readiness; degraded or unhealthy state returns 503",
+        "parameters": [{"$ref": "#/components/parameters/RequestId"}, {"$ref": "#/components/parameters/CorrelationId"}],
+        "responses": {
+          "200": {"$ref": "#/components/responses/Ready"},
+          "503": {"$ref": "#/components/responses/NotReady"}
+        }
+      }
+    },
+    "/api/v1/sample/health": {
+      "get": {
+        "operationId": "sampleHealthViaGateway",
+        "summary": "Authenticated sample health overview (sample:read)",
+        "security": [{"OidcAccessToken": []}],
+        "x-required-permission": "sample:read",
+        "parameters": [{"$ref": "#/components/parameters/RequestId"}, {"$ref": "#/components/parameters/CorrelationId"}, {"$ref": "#/components/parameters/TenantId"}],
+        "responses": {
+          "200": {"$ref": "#/components/responses/Overview"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "405": {"$ref": "#/components/responses/MethodNotAllowed"},
+          "502": {"$ref": "#/components/responses/BadGateway"}
+        }
+      }
+    },
+    "/api/v1/sample/health/live": {
+      "get": {
+        "operationId": "sampleLivenessViaGateway",
+        "summary": "Authenticated sample liveness (sample:read)",
+        "security": [{"OidcAccessToken": []}],
+        "x-required-permission": "sample:read",
+        "parameters": [{"$ref": "#/components/parameters/RequestId"}, {"$ref": "#/components/parameters/CorrelationId"}, {"$ref": "#/components/parameters/TenantId"}],
+        "responses": {
+          "200": {"$ref": "#/components/responses/Liveness"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "405": {"$ref": "#/components/responses/MethodNotAllowed"},
+          "502": {"$ref": "#/components/responses/BadGateway"}
+        }
+      }
+    },
+    "/api/v1/sample/health/ready": {
+      "get": {
+        "operationId": "sampleReadinessViaGateway",
+        "summary": "Authenticated downstream readiness (sample:read)",
+        "security": [{"OidcAccessToken": []}],
+        "x-required-permission": "sample:read",
+        "parameters": [{"$ref": "#/components/parameters/RequestId"}, {"$ref": "#/components/parameters/CorrelationId"}, {"$ref": "#/components/parameters/TenantId"}],
+        "responses": {
+          "200": {"$ref": "#/components/responses/Ready"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "405": {"$ref": "#/components/responses/MethodNotAllowed"},
+          "502": {"$ref": "#/components/responses/BadGateway"},
+          "503": {"$ref": "#/components/responses/NotReady"}
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "OidcAccessToken": {"type": "http", "scheme": "bearer", "bearerFormat": "JWT", "description": "OAuth2 API access token from the configured OIDC issuer. Discovery/JWKS verification uses RS256 with issuer/audience/expiry/nbf/iat checks. tenant_id identifies one authorized organization; roles, permissions and scope are tenant-scoped. Use an API audience distinct from the browser client so ID tokens are not API credentials."}
+    },
+    "parameters": {
+      "RequestId": {"name": "X-Request-ID", "in": "header", "required": false, "schema": {"type": "string"}},
+      "CorrelationId": {"name": "X-Correlation-ID", "in": "header", "required": false, "schema": {"type": "string"}},
+      "TenantId": {"name": "X-Tenant-ID", "in": "header", "required": false, "description": "Optional organization selector; if supplied it must equal the signed tenant_id. Duplicate selectors are rejected. Caller identity/role headers never grant privileges.", "schema": {"type": "string", "minLength": 1}}
+    },
+    "headers": {
+      "TraceId": {"description": "Generated or propagated tracing context", "required": true, "schema": {"type": "string", "minLength": 1}}
+    },
+    "responses": {
+      "Unauthorized": {
+        "description": "Missing, invalid or expired OAuth2 API bearer credential",
+        "headers": {"X-Request-ID": {"$ref": "#/components/headers/TraceId"}, "X-Correlation-ID": {"$ref": "#/components/headers/TraceId"}, "WWW-Authenticate": {"required": true, "schema": {"type": "string", "minLength": 1}}},
+        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}
+      },
+      "Forbidden": {
+        "description": "Tenant mismatch or insufficient role/action permission; downstream is not called",
+        "headers": {"X-Request-ID": {"$ref": "#/components/headers/TraceId"}, "X-Correlation-ID": {"$ref": "#/components/headers/TraceId"}},
+        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}
+      },
+      "MethodNotAllowed": {
+        "description": "Method is not allowed by the proxy policy",
+        "headers": {"X-Request-ID": {"$ref": "#/components/headers/TraceId"}, "X-Correlation-ID": {"$ref": "#/components/headers/TraceId"}, "Allow": {"required": true, "schema": {"type": "string", "minLength": 1}}},
+        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}
+      },
+      "BadGateway": {
+        "description": "Downstream connection or response-header timeout/failure",
+        "headers": {"X-Request-ID": {"$ref": "#/components/headers/TraceId"}, "X-Correlation-ID": {"$ref": "#/components/headers/TraceId"}},
+        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}
+      },
+      "Overview": {
+        "description": "Aggregate health; HTTP success does not imply readiness",
+        "headers": {"X-Request-ID": {"$ref": "#/components/headers/TraceId"}, "X-Correlation-ID": {"$ref": "#/components/headers/TraceId"}},
+        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SystemHealth"}}}
+      },
+      "Liveness": {
+        "description": "Process is responding",
+        "headers": {"X-Request-ID": {"$ref": "#/components/headers/TraceId"}, "X-Correlation-ID": {"$ref": "#/components/headers/TraceId"}},
+        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Liveness"}}}
+      },
+      "Ready": {
+        "description": "Aggregate status is healthy",
+        "headers": {"X-Request-ID": {"$ref": "#/components/headers/TraceId"}, "X-Correlation-ID": {"$ref": "#/components/headers/TraceId"}},
+        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/HealthySystemHealth"}}}
+      },
+      "NotReady": {
+        "description": "Aggregate status is degraded or unhealthy",
+        "headers": {"X-Request-ID": {"$ref": "#/components/headers/TraceId"}, "X-Correlation-ID": {"$ref": "#/components/headers/TraceId"}},
+        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/NotReadySystemHealth"}}}
+      }
+    },
+    "schemas": {
+      "Error": {"type": "object", "additionalProperties": false, "required": ["error"], "properties": {"error": {"type": "string", "minLength": 1}}},
+      "HealthStatus": {"type": "string", "enum": ["healthy", "degraded", "unhealthy"]},
+      "ComponentHealth": {
+        "type": "object", "additionalProperties": false, "required": ["name", "status"],
+        "properties": {
+          "name": {"type": "string", "minLength": 1},
+          "status": {"$ref": "#/components/schemas/HealthStatus"},
+          "details": {"type": "object", "additionalProperties": true}
+        }
+      },
+      "SystemHealth": {
+        "type": "object", "additionalProperties": false,
+        "required": ["status", "version", "timestamp", "components"],
+        "properties": {
+          "status": {"$ref": "#/components/schemas/HealthStatus"},
+          "version": {"type": "string", "minLength": 1},
+          "timestamp": {"type": "string", "format": "date-time"},
+          "components": {"type": "array", "items": {"$ref": "#/components/schemas/ComponentHealth"}}
+        }
+      },
+      "HealthySystemHealth": {"allOf": [{"$ref": "#/components/schemas/SystemHealth"}, {"properties": {"status": {"const": "healthy"}}}]},
+      "NotReadySystemHealth": {"allOf": [{"$ref": "#/components/schemas/SystemHealth"}, {"properties": {"status": {"enum": ["degraded", "unhealthy"]}}}]},
+      "Liveness": {"type": "object", "additionalProperties": false, "required": ["status"], "properties": {"status": {"const": "healthy"}}}
+    }
+  }
+}

@@ -1,0 +1,95 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "MarketMind Python Sample Health API",
+    "version": "0.1.0",
+    "description": "Implemented FastAPI sample health operations only. Health overview always returns 200; readiness returns 503 for degraded/unhealthy states. No identity or business research endpoints are implemented here."
+  },
+  "x-marketmind-service": "platform-sample",
+  "servers": [{"url": "http://localhost:8000", "description": "Local development"}],
+  "security": [],
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "sampleHealth",
+        "summary": "Health overview; always returns 200 with aggregate status",
+        "parameters": [{"$ref": "#/components/parameters/RequestId"}, {"$ref": "#/components/parameters/CorrelationId"}],
+        "responses": {"200": {"$ref": "#/components/responses/Overview"}}
+      }
+    },
+    "/health/live": {
+      "get": {
+        "operationId": "sampleLiveness",
+        "summary": "Process liveness",
+        "parameters": [{"$ref": "#/components/parameters/RequestId"}, {"$ref": "#/components/parameters/CorrelationId"}],
+        "responses": {"200": {"$ref": "#/components/responses/Liveness"}}
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "operationId": "sampleReadiness",
+        "summary": "Readiness; degraded or unhealthy state returns 503",
+        "parameters": [{"$ref": "#/components/parameters/RequestId"}, {"$ref": "#/components/parameters/CorrelationId"}],
+        "responses": {
+          "200": {"$ref": "#/components/responses/Ready"},
+          "503": {"$ref": "#/components/responses/NotReady"}
+        }
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "RequestId": {"name": "X-Request-ID", "in": "header", "required": false, "schema": {"type": "string"}},
+      "CorrelationId": {"name": "X-Correlation-ID", "in": "header", "required": false, "schema": {"type": "string"}}
+    },
+    "headers": {
+      "TraceId": {"description": "Generated or propagated tracing context", "required": true, "schema": {"type": "string", "minLength": 1}}
+    },
+    "responses": {
+      "Overview": {
+        "description": "Aggregate health; HTTP success does not imply readiness",
+        "headers": {"X-Request-ID": {"$ref": "#/components/headers/TraceId"}, "X-Correlation-ID": {"$ref": "#/components/headers/TraceId"}},
+        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SystemHealth"}}}
+      },
+      "Liveness": {
+        "description": "Process is responding",
+        "headers": {"X-Request-ID": {"$ref": "#/components/headers/TraceId"}, "X-Correlation-ID": {"$ref": "#/components/headers/TraceId"}},
+        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Liveness"}}}
+      },
+      "Ready": {
+        "description": "Aggregate status is healthy",
+        "headers": {"X-Request-ID": {"$ref": "#/components/headers/TraceId"}, "X-Correlation-ID": {"$ref": "#/components/headers/TraceId"}},
+        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/HealthySystemHealth"}}}
+      },
+      "NotReady": {
+        "description": "Aggregate status is degraded or unhealthy",
+        "headers": {"X-Request-ID": {"$ref": "#/components/headers/TraceId"}, "X-Correlation-ID": {"$ref": "#/components/headers/TraceId"}},
+        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/NotReadySystemHealth"}}}
+      }
+    },
+    "schemas": {
+      "HealthStatus": {"type": "string", "enum": ["healthy", "degraded", "unhealthy"]},
+      "ComponentHealth": {
+        "type": "object", "additionalProperties": false, "required": ["name", "status"],
+        "properties": {
+          "name": {"type": "string", "minLength": 1},
+          "status": {"$ref": "#/components/schemas/HealthStatus"},
+          "details": {"type": "object", "additionalProperties": true}
+        }
+      },
+      "SystemHealth": {
+        "type": "object", "additionalProperties": false,
+        "required": ["status", "version", "timestamp", "components"],
+        "properties": {
+          "status": {"$ref": "#/components/schemas/HealthStatus"},
+          "version": {"type": "string", "minLength": 1},
+          "timestamp": {"type": "string", "format": "date-time"},
+          "components": {"type": "array", "items": {"$ref": "#/components/schemas/ComponentHealth"}}
+        }
+      },
+      "HealthySystemHealth": {"allOf": [{"$ref": "#/components/schemas/SystemHealth"}, {"properties": {"status": {"const": "healthy"}}}]},
+      "NotReadySystemHealth": {"allOf": [{"$ref": "#/components/schemas/SystemHealth"}, {"properties": {"status": {"enum": ["degraded", "unhealthy"]}}}]},
+      "Liveness": {"type": "object", "additionalProperties": false, "required": ["status"], "properties": {"status": {"const": "healthy"}}}
+    }
+  }
+}

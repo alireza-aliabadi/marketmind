@@ -1,10 +1,24 @@
 # MarketMind AI
 
+Phase 2 now includes a locally verified **future production-ingestion profile**:
+secure transports, DML-only role, supervised workers, shared quotas/journal,
+restore/retry checks and patched runtime. Live sources remain disabled until
+actual access/grants and deployment acceptance exist. See
+[hardening evidence](docs/reports/phase-2-production-hardening.md) and the
+[release runbook](docs/runbooks/phase-2-production.md). M3.2/AI remain unimplemented.
+
 **Agentic Market Intelligence Platform powered by Domain-Driven Microservices, Clean Architecture, Event-Driven Integration, Temporal Knowledge Graphs, and GraphRAG.**
 
 > Portfolio project: an evidence-backed market research platform that connects companies, financial data, corporate events, macroeconomic indicators, and market relationships over time. It uses specialized AI workflows to investigate questions, retrieve supporting evidence, calculate reproducible metrics, and produce explainable research reports.
 >
 > **Product boundary:** MarketMind is a research and decision-support product. It does not execute trades, provide guaranteed predictions, or represent personalized investment advice.
+
+**Implemented boundary:** M2.1–M2.4 ingestion and M3.1 graph-schema foundation are
+locally verified, preserving the existing implementation. Acceptance uses synthetic
+provider data with actual Kafka/PostgreSQL/TimescaleDB/Neo4j components. M3.2+ AI,
+retrieval and research remain unimplemented. See
+[evidence](docs/reports/through-m3.1-verification.md) and the
+[code-free manual AI requirements](docs/requirements/ai-manual-handoff.md).
 
 ---
 
@@ -536,6 +550,7 @@ Agents return typed, bounded results. They do not independently invent facts or 
 ```python
 from typing import TypedDict
 
+
 class ResearchState(TypedDict):
     research_id: str
     question: str
@@ -565,6 +580,7 @@ Use a persistent LangGraph checkpointer for thread/run recovery. Separate workfl
 from pydantic import BaseModel
 from typing import Literal
 
+
 class Evidence(BaseModel):
     evidence_id: str
     source_id: str
@@ -572,12 +588,9 @@ class Evidence(BaseModel):
     entity_ids: list[str]
     published_at: str | None
     observed_at: str | None
-    evidence_type: Literal[
-        "reported_fact",
-        "calculated_metric",
-        "inference"
-    ]
+    evidence_type: Literal["reported_fact", "calculated_metric", "inference"]
     confidence: float | None
+
 
 class ImpactAssessment(BaseModel):
     affected_entities: list[str]
@@ -966,27 +979,127 @@ internal/
 
 Prerequisites:
 
-- Docker Engine / Docker Compose
-- Go toolchain
-- Python 3.12 or a compatible version selected by the dependency lock
-- Node.js LTS and package manager
+- Docker Engine / Docker Compose 2.24.4+
+- Go 1.25+ (pinned/tested toolchain: 1.26.5)
+- Python 3.14+
+- Node.js 22.12.0+ and pnpm 12.18.0
 - `uv` or another pinned Python dependency manager
-- Make
+- Make (optional command aliases/check aggregation)
+- A valid, untracked AIStor `minio.license` beside `compose.yml`
 
-The exact compose file, commands, ports, and environment variables should be added as implementation lands. Do not document a command as working until it has been executed in CI or a clean local environment.
+M1.3 infrastructure is implemented and verified. PostgreSQL 18 with TimescaleDB
+2.31.0, Kafka in KRaft mode, Neo4j, Redis, and MinIO AIStor have pinned images,
+health checks, and persistent named volumes. Configure local credentials in
+`.env` using `.env.example`; preserve existing settings and never commit real
+API keys, credentials, or licenses.
 
-Planned developer commands:
+Verified developer commands:
 
 ```bash
+uv sync --extra dev --frozen
+pnpm --dir frontend/web install --frozen-lockfile
+make check
+make gateway-test
+make market-data-test
+make graph-schema-test
+make frontend-check
+make infra-config
 make infra-up
-make migrate
+make infra-check
+make infra-test
+make contracts-check
+make architecture-check
+make ownership-test
 make test
 make lint
 make run
 make infra-down
 ```
 
-Environment configuration should be documented in `.env.example`. Never commit real API keys, credentials, or provider secrets.
+Python and Go applications do not need Bash launchers or Make. From the repository
+root, use these native entry points (configure the required credentials/settings
+first and run each service in its own terminal):
+
+```text
+uv run marketmind-api --reload
+go -C services/api-gateway run ./cmd/server
+uv run graph-setup
+go -C services/market-data-service run ./cmd/market-data setup
+```
+
+`uv sync` installs the Python packages/entry points; Go manages dependencies from
+its modules. No `PYTHONPATH` workaround is needed. Setup commands are explicit
+operator operations, not prerequisites imposed by Neo4j for creating a node or
+permission for ordinary workers to use administrator credentials.
+
+`make infra-up` enables the infrastructure profile and waits for Compose's health
+checks; no second wrapper runs on startup. The equivalent native command is
+`docker compose --profile infra up --detach --wait --wait-timeout 240`.
+`uv run python -m infra check` optionally verifies authenticated access.
+`make infra-test` (`uv run python -m infra test`) independently
+tests clean startup and data survival across container recreation in a temporary
+Docker project; it does not overwrite `.env` or modify development databases.
+`make infra-down` preserves development volumes. `make infra-tools` optionally
+starts Kafka UI at `http://localhost:8081` without competing with the Go gateway
+on port 8080.
+
+Shared services are defined without host bindings in `compose.yml`. Development
+uses `compose.override.yml` for the existing localhost ports; the Makefile loads
+both files explicitly. Tests load only the shared base and `infra/compose.test.yml`,
+so they stay port-free without Compose-specific YAML tags.
+
+See [Local Infrastructure](CONTRIBUTING.md#local-infrastructure) for host/container
+connection addresses, the AIStor license prerequisite, and migration precautions.
+Market/graph setup has native operator commands shown above, with optional
+`make market-setup` / `make graph-setup` aliases; neither implicitly touches existing
+volumes. Export reviewed, separately provisioned operator/runtime settings before manual use.
+Migration/ingestion CLIs do not load `.env` or use administrator runtime fallbacks.
+
+M1.4 adds [versioned API/event contracts](contracts/README.md), a
+[service ownership matrix](contracts/service-ownership.json), communication and
+data-ownership ADRs, producer conformance tests, and executable architecture/SQL
+permission gates. The default `make check` validates contracts and boundaries;
+`make ownership-test` separately tests real PostgreSQL access without an AIStor
+license. Existing database volumes are not automatically migrated.
+
+M1.2 now verifies OIDC/OAuth2 API bearer tokens through discovery and rotating
+RS256 JWKS, enforces tenant-scoped route permissions, and reaches the actual Python
+sample through three protected health paths. `make gateway-test` exercises the
+real Go → FastAPI flow without Docker, `.env` or an external identity account.
+The identity service defines tested organization/user/membership domain models;
+its persistence/CRUD/provisioning APIs are not implemented. See
+[gateway setup](services/api-gateway/README.md) and
+[ADR-0007](docs/architect/ADR-0007-oidc-identity-foundation.md) for the claim contract,
+manual OIDC configuration, trust boundary and remaining production security work.
+
+The frontend has pinned lint/format/build gates; all three Go modules have
+build/unit/race gates. Phase 1 evidence remains in its
+[report](docs/reports/phase-1-verification.md). Remote CI has not been observed.
+
+The [market-data CLI](services/market-data-service/README.md) implements metadata/
+time-series provider ports, exact decimals, permission-gated sources, transactional
+receipt/outbox, Kafka/DLQ/replay, owned persistence and bounded provenance/freshness
+queries. `make market-data-test` runs actual private-store workflows, including
+the compiled CLI, without live financial data/grants. FRED's current terms prohibit
+retention/AI development absent permission; Massive public/multi-tenant/AI rights
+require review. API keys are not licenses. Source AI-use policy defaults to denied.
+See ADR-0008/ADR-0009.
+
+M3.1 adds [canonical identities/schema](docs/data-model/graph-schema.md), ten
+business Neo4j uniqueness constraints and nine explicit range indexes, with
+idempotent Python setup and reserved-name conflict checks. Migration files and
+bookkeeping nodes are no longer required; existing records are preserved.
+See [native setup decision](docs/architect/ADR-0012-native-setup.md).
+`make graph-schema-test` uses a private Community instance, not a populated business
+knowledge graph. Community
+constraints/indexes do not enforce provenance, time or tenant visibility.
+
+No filing-document acquisition/S3 artifact publisher, claim model/ingestion,
+entity-resolution workflow, temporal queries, embeddings, GraphRAG, LangGraph,
+agents or reports are implemented. The
+[manual AI handoff](docs/requirements/ai-manual-handoff.md) is requirements and
+acceptance criteria only; work stops before M3.2. See
+[through-M3.1 evidence](docs/reports/through-m3.1-verification.md).
 
 ## 16. Portfolio demonstration
 
@@ -1039,4 +1152,8 @@ A milestone is complete when:
 
 ---
 
-**Status:** Architecture and implementation plan. This README describes the intended system; it does not claim that the services or milestones have already been implemented.
+**Status:** Locally implemented/verified through M3.1; stopped before M3.2.
+Remote CI, live source grants/accounts and production hardening remain pending.
+See [PROGRESS.md](PROGRESS.md), [evidence](docs/reports/through-m3.1-verification.md)
+and [manual AI requirements](docs/requirements/ai-manual-handoff.md). Later-phase
+architecture describes the intended system, not completed functionality.

@@ -1,0 +1,183 @@
+name: CI Pipeline
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  contracts-and-architecture:
+    name: Contracts, Architecture & Data Ownership
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.14.8
+
+      - name: Install validation dependencies
+        run: uv sync --extra dev --frozen
+
+      - name: Validate contracts and immutable event schemas
+        env:
+          CONTRACT_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [ -n "$CONTRACT_BASE_SHA" ] && [ "$CONTRACT_BASE_SHA" != "0000000000000000000000000000000000000000" ]; then
+            uv run python -m contracts.validation --base-ref "$CONTRACT_BASE_SHA"
+          else
+            make contracts-check
+          fi
+
+      - name: Enforce architecture boundaries
+        run: make architecture-check
+
+      - name: Contract and negative architecture tests
+        run: uv run pytest tests/test_events.py tests/test_openapi.py tests/test_architecture.py
+
+      - name: Verify actual PostgreSQL access isolation
+        run: make ownership-test
+
+  python-checks:
+    name: Python Lint & Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.14.8
+
+      - name: Install dependencies
+        run: uv sync --extra dev --frozen
+
+      - name: Lint with Ruff
+        run: uv run ruff check .
+
+      - name: Check Python formatting
+        run: uv run ruff format --check .
+
+      - name: Type check with Mypy
+        run: uv run mypy src services/knowledge-graph-service/knowledge_graph_service infra
+
+      - name: Run Pytest
+        run: uv run pytest
+
+  go-checks:
+    name: Go Build & Tests
+    runs-on: ubuntu-latest
+    env:
+      GOFLAGS: -mod=readonly
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.11'
+          cache: true
+          cache-dependency-path: |
+            services/api-gateway/go.mod
+            services/api-gateway/go.sum
+            services/identity-service/go.mod
+            services/market-data-service/go.mod
+            services/market-data-service/go.sum
+
+      - name: Check Go formatting and vet
+        run: make lint-go
+
+      - name: Test Go modules with race detection
+        run: make test-go GO_TEST_FLAGS="-race -count=1"
+
+      - name: Build Go modules
+        run: make build-go
+
+  gateway-integration:
+    name: OIDC Gateway to FastAPI
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GOFLAGS: -mod=readonly
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.11'
+          cache-dependency-path: services/api-gateway/go.sum
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.14.8
+
+      - name: Install frozen Python dependencies
+        run: uv sync --extra dev --frozen
+
+      - name: Verify real routing, OIDC, tenant authorization and failures
+        run: make gateway-test
+
+  ingestion-and-graph-integration:
+    name: Market Ingestion & Graph Schema
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GOFLAGS: -mod=readonly
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.11'
+          cache-dependency-path: services/market-data-service/go.sum
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Set up Python
+        run: uv python install 3.14.8
+      - name: Install frozen dependencies
+        run: uv sync --extra dev --frozen
+      - name: Verify Phase 2 transport, privileges, worker and restore controls
+        run: make market-production-test
+      - name: Check reachable Go vulnerabilities in ingestion
+        working-directory: services/market-data-service
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
+      - name: Verify M3.1 with isolated Neo4j
+        run: make graph-schema-test
+
+  frontend-checks:
+    name: React Scaffold Lint & Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '12.18.0'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.12.0'
+          cache: pnpm
+          cache-dependency-path: frontend/web/pnpm-lock.yaml
+
+      - name: Install frozen frontend dependencies
+        run: pnpm --dir frontend/web install --frozen-lockfile
+
+      - name: Check and build frontend scaffold
+        run: make frontend-check
